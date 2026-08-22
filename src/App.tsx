@@ -35,6 +35,7 @@ export function App() {
   const [eyePreset, setEyePreset] = useState<EyePresetPosition>('top_center');
   const [customEyePos, setCustomEyePos] = useState<{ x: number; y: number } | null>(null);
   const isDraggingEyesRef = useRef(false);
+  const lastIgnoreStateRef = useRef<boolean | null>(null);
 
   // Display Mode: Defaults to Clean OS Top Status-Bar Widget Panel!
   const [showFullNavbar, setShowFullNavbar] = useState(false);
@@ -364,15 +365,20 @@ export function App() {
         showFullNavbar ||
         Boolean(targetEl && targetEl.closest('button, input, a, .context-menu-container'));
 
-      // Forward mouse events to underlying desktop windows when over transparent canvas!
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const win = window as any;
-      if (win.require) {
-        try {
-          const { ipcRenderer } = win.require('electron');
-          ipcRenderer.send('set-ignore-mouse-events', !isOverInteractiveUI, { forward: true });
-        } catch {
-          /* ignore */
+      const shouldIgnore = !isOverInteractiveUI;
+
+      // Only send IPC when hover state ACTUALLY changes (prevents flooding IPC channel and crashing!)
+      if (lastIgnoreStateRef.current !== shouldIgnore) {
+        lastIgnoreStateRef.current = shouldIgnore;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const win = window as any;
+        if (win.require) {
+          try {
+            const { ipcRenderer } = win.require('electron');
+            ipcRenderer.send('set-ignore-mouse-events', shouldIgnore, { forward: true });
+          } catch {
+            /* ignore */
+          }
         }
       }
     };
