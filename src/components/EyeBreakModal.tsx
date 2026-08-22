@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { EyeOff, Sparkles, ShieldAlert, CheckCircle2 } from 'lucide-react';
+import { Sparkles, CheckCircle2 } from 'lucide-react';
 
 interface EyeBreakModalProps {
   isOpen: boolean;
@@ -17,11 +17,15 @@ export const EyeBreakModal: React.FC<EyeBreakModalProps> = ({
   useEffect(() => {
     if (!isOpen) {
       setTimeLeft(breakDurationSeconds);
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
       return;
     }
 
-    // Play Voice Warning Alert if SpeechSynthesis is available
+    // Play Voice Warning Alert ONCE when modal opens
     if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel(); // Stop any previous speech
       const msg = new SpeechSynthesisUtterance("You've been staring at the screen for too long! Please take an eye break now.");
       msg.rate = 1.0;
       window.speechSynthesis.speak(msg);
@@ -38,7 +42,12 @@ export const EyeBreakModal: React.FC<EyeBreakModalProps> = ({
       });
     }, 1000);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
   }, [isOpen, breakDurationSeconds, onUnlock]);
 
   if (!isOpen) return null;
@@ -100,7 +109,12 @@ export const EyeBreakModal: React.FC<EyeBreakModalProps> = ({
 
         {/* Emergency Manual Skip Button */}
         <button
-          onClick={onUnlock}
+          onClick={() => {
+            if ('speechSynthesis' in window) {
+              window.speechSynthesis.cancel();
+            }
+            onUnlock();
+          }}
           className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-slate-600 rounded-xl text-xs font-mono text-slate-300 hover:text-white flex items-center justify-center gap-2 transition-all cursor-pointer"
         >
           <CheckCircle2 className="w-4 h-4 text-emerald-400" />
