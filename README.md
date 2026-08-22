@@ -77,6 +77,10 @@ Eye Tracker Studio turns your cursor and camera into a high-performance 60 FPS i
 
 ## 🔮 Master Feature & AI Roadmap
 
+### 🤖 Multimodal Vision AI ("What Are You Looking At?")
+- [ ] **AI Gaze Scene Explainer:** Hold your gaze on any code block, image, or chart on screen to get an instant AI vision summary!
+- [ ] **AI Reading Assistant:** Highlights and defines complex terms as your gaze scans text.
+
 ### 💖 Cute Emotion & Expression Engine
 - [ ] **Happy / Smiling Eyes (`^ ^`):** Eyes squint into cute curved arcs when clicking or moving in circles.
 - [ ] **Love / Heart Pupil Mode (`💖`):** Pupils morph into glowing pulsing hearts on double-click or webcam eye contact.
