@@ -1,6 +1,7 @@
 const { app, BrowserWindow, Tray, Menu, ipcMain, screen, nativeImage } = require('electron');
 const path = require('path');
 const http = require('http');
+const { exec } = require('child_process');
 
 // Enable True Transparency & Hardware GPU Acceleration on Linux X11/Wayland
 app.commandLine.appendSwitch('enable-transparent-visuals');
@@ -56,28 +57,29 @@ function createWindow() {
     mainWindow.loadFile(distPath);
   });
 
-  // System Tray Icon on OS Status Bar
-  try {
-    const icon = createSvgTrayIcon();
-    tray = new Tray(icon);
-    const contextMenu = Menu.buildFromTemplate([
-      { label: '👁️ Eye Tracker Status Bar Widget', enabled: false },
-      { type: 'separator' },
-      { label: '📌 Compact Top Bar Widget Mode', click: () => toggleWidgetMode(true) },
-      { label: '🖥️ Full Studio Window Mode', click: () => toggleWidgetMode(false) },
-      { type: 'separator' },
-      { label: 'Show/Hide', click: () => (mainWindow.isVisible() ? mainWindow.hide() : mainWindow.show()) },
-      { label: 'Quit', click: () => app.quit() },
-    ]);
-    tray.setToolTip('Eye Tracker Studio - OS Top Panel Widget');
-    tray.setContextMenu(contextMenu);
-  } catch (e) {
-    console.log('Tray creation notice:', e.message);
-  }
+  // Tray Menu Setup
+  tray = new Tray(createSvgTrayIcon());
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: 'Toggle OS Status Bar Mode',
+      type: 'checkbox',
+      checked: true,
+      click: () => toggleWidgetMode(!isWidgetMode),
+    },
+    { type: 'separator' },
+    {
+      label: 'Lock OS Screen Now',
+      click: () => lockOsScreen(),
+    },
+    { type: 'separator' },
+    {
+      label: 'Quit Eye Tracker Studio',
+      click: () => app.quit(),
+    },
+  ]);
 
-  mainWindow.on('closed', () => {
-    mainWindow = null;
-  });
+  tray.setToolTip('Eye Tracker Studio');
+  tray.setContextMenu(contextMenu);
 }
 
 function toggleWidgetMode(enableWidget) {
@@ -102,12 +104,21 @@ function toggleWidgetMode(enableWidget) {
   mainWindow.webContents.send('widget-mode-changed', isWidgetMode);
 }
 
+function lockOsScreen() {
+  if (process.platform === 'linux') {
+    exec('loginctl lock-session || xdg-screensaver lock || gnome-screensaver-command -l');
+  } else if (process.platform === 'win32') {
+    exec('rundll32.exe user32.dll,LockWorkStation');
+  } else if (process.platform === 'darwin') {
+    exec('pmset displaysleepnow');
+  }
+}
+
 // IPC Listeners for Mode Toggle & Window Resizing from UI
 ipcMain.on('toggle-widget-mode', (event, enable) => {
   toggleWidgetMode(enable);
 });
 
-// IPC Listener to expand height when right-click menu opens
 ipcMain.on('expand-window-for-menu', (event, expand) => {
   if (!mainWindow || !isWidgetMode) return;
   const primaryDisplay = screen.getPrimaryDisplay();
@@ -118,6 +129,11 @@ ipcMain.on('expand-window-for-menu', (event, expand) => {
   } else {
     mainWindow.setBounds({ x: 0, y: 0, width: width, height: 54 });
   }
+});
+
+// IPC Listener to Lock OS Desktop Workstation Screen
+ipcMain.on('lock-os-screen', () => {
+  lockOsScreen();
 });
 
 app.whenReady().then(() => {

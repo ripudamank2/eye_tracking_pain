@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Sparkles, CheckCircle2 } from 'lucide-react';
+import { Sparkles, CheckCircle2, Lock } from 'lucide-react';
 
 interface EyeBreakModalProps {
   isOpen: boolean;
@@ -14,6 +14,19 @@ export const EyeBreakModal: React.FC<EyeBreakModalProps> = ({
 }) => {
   const [timeLeft, setTimeLeft] = useState(breakDurationSeconds);
 
+  const lockOsScreen = () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const win = window as any;
+    if (win.require) {
+      try {
+        const { ipcRenderer } = win.require('electron');
+        ipcRenderer.send('lock-os-screen');
+      } catch {
+        /* ignore */
+      }
+    }
+  };
+
   useEffect(() => {
     if (!isOpen) {
       setTimeLeft(breakDurationSeconds);
@@ -25,7 +38,7 @@ export const EyeBreakModal: React.FC<EyeBreakModalProps> = ({
 
     // Play Voice Warning Alert ONCE when modal opens
     if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel(); // Stop any previous speech
+      window.speechSynthesis.cancel();
       const msg = new SpeechSynthesisUtterance("You've been staring at the screen for too long! Please take an eye break now.");
       msg.rate = 1.0;
       window.speechSynthesis.speak(msg);
@@ -107,19 +120,29 @@ export const EyeBreakModal: React.FC<EyeBreakModalProps> = ({
           </ul>
         </div>
 
-        {/* Emergency Manual Skip Button */}
-        <button
-          onClick={() => {
-            if ('speechSynthesis' in window) {
-              window.speechSynthesis.cancel();
-            }
-            onUnlock();
-          }}
-          className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-slate-600 rounded-xl text-xs font-mono text-slate-300 hover:text-white flex items-center justify-center gap-2 transition-all cursor-pointer"
-        >
-          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-          <span>I Rested My Eyes (Early Unlock)</span>
-        </button>
+        {/* Action Buttons */}
+        <div className="space-y-2">
+          <button
+            onClick={lockOsScreen}
+            className="w-full py-2.5 bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 rounded-xl text-xs font-mono font-bold text-rose-300 flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md shadow-rose-500/10"
+          >
+            <Lock className="w-4 h-4 text-rose-400" />
+            <span>Lock OS Desktop Workstation Now</span>
+          </button>
+
+          <button
+            onClick={() => {
+              if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+              }
+              onUnlock();
+            }}
+            className="w-full py-2 bg-slate-800/80 hover:bg-slate-700 border border-slate-700 rounded-xl text-[11px] font-mono text-slate-400 hover:text-white flex items-center justify-center gap-2 transition-all cursor-pointer"
+          >
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <span>I Rested My Eyes (Early Unlock)</span>
+          </button>
+        </div>
       </div>
     </div>
   );
