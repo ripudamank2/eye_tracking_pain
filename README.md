@@ -87,12 +87,25 @@ Eye Tracker Studio turns your cursor and camera into a high-performance 60 FPS i
 - [ ] **Animated Eyebrows:** Expressive mini eyebrows for surprised, focused, and sleepy moods.
 - [ ] **Gaze Eye-Contact Reaction:** Eyes blush and smile back when AI camera detects direct eye contact!
 
-### 🎨 Creative Eye Themes
+### 🎨 Creative Eye Themes & Custom Designer
 - [ ] **Anime Heart Eyes:** Pulsing pink heart pupils with star catchlights.
 - [ ] **Dragon / Reptile Eyes:** Glowing golden scales with dynamic pupil slits.
 - [ ] **Cosmic Galaxy Eyes:** Rotating spiral galaxy iris with floating stardust.
 - [ ] **Matrix Code Rain Eyes:** Falling green matrix numbers inside the pupil.
 - [ ] **Fiery Flame Eyes:** Animated flickering flame aura around the iris.
+- [ ] **In-App Custom Eye Studio:** Customizer modal to tweak pupil color, iris gradient, and glow intensity.
+
+### 🎵 Musical Eye Theremin & Audio Visualizer
+- [ ] **Musical Eye Theremin:** Play musical notes with your gaze (X-axis controls pitch, Y-axis controls vibrato).
+- [ ] **Music Reactive Pupil Pulse:** Pupils pulse dynamically to the bassline of playing music!
+
+### 🌈 Mood-Adaptive Trails & Black Hole Physics
+- [ ] **Speed-Adaptive Particle Trails:** Trail colors shift from cyan to fiery orange based on cursor speed.
+- [ ] **Gravity Well Black Hole FX:** Click creates a mini black hole pulling screen particles inward!
+
+### 📸 Gaze Screen Recorder & Multilingual Voice
+- [ ] **Gaze Overlay GIF/MP4 Recorder:** Record quick screen clips with animated eyes overlay for Twitter/Discord.
+- [ ] **Multilingual Voice Commands:** Support voice commands in English, Spanish, Japanese, French, German, and Hindi!
 
 ### 🧠 Emotion AI & Mood Synchronization
 - [ ] **AI Mood & Facial Expression Sync:** Real-time facial sentiment analysis via webcam so the eyes mirror your exact mood (*Happy, Surprised, Confused, Focused, Tired*).
@@ -100,11 +113,7 @@ Eye Tracker Studio turns your cursor and camera into a high-performance 60 FPS i
 
 ### 🎯 AI Intent Pointer & Smart Gestures
 - [ ] **AI Target Snap-to-Button:** Predicts intended click targets from gaze velocity and snaps the reticle smoothly to buttons.
-- [ ] **AI Camera Gestures:**
-  - **Head Nod:** Confirm / Select
-  - **Head Shake:** Cancel / Back
-  - **Smile:** Trigger heart burst particles!
-  - **Left Wink:** Left-click | **Right Wink:** Right-click
+- [ ] **AI Camera Gestures:** Head Nod (Confirm), Head Shake (Cancel), Smile (Heart particles), Left/Right Winks.
 
 ### 🧠 Subconscious Pupillometry & Attention Analysis
 - [ ] **Task-Evoked Pupil Dilations:** Measures cognitive load & micro-frustration in real-time to adjust UI legibility.
@@ -137,10 +146,6 @@ Eye Tracker Studio turns your cursor and camera into a high-performance 60 FPS i
 ### 🎯 Presentation, Health & Productivity Tools
 - [ ] **Reading Ruler:** Highlighted focus line under the text line your gaze is reading.
 - [ ] **20-20-20 Eye Rest Reminder:** Cute eye-closing animation every 20 minutes to prevent eye strain.
-
-### 🎨 AI Prompt-to-Theme Generator & Mini-Games
-- [ ] **Text-to-Eye Theme Generation:** Type any prompt (*"Vaporwave Sunset"*, *"Cyber Dragon"*) to generate procedural themes.
-- [ ] **Gaze Mini-Games:** Gaze Pong, Blink Speed Test, and Gaze Maze Runner.
 
 ---
 
