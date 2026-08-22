@@ -147,6 +147,33 @@ Eye Tracker Studio turns your cursor and camera into a high-performance 60 FPS i
 - [ ] **Reading Ruler:** Highlighted focus line under the text line your gaze is reading.
 - [ ] **20-20-20 Eye Rest Reminder:** Cute eye-closing animation every 20 minutes to prevent eye strain.
 
+### 🎨 AI Prompt-to-Theme Generator & Mini-Games
+- [ ] **Text-to-Eye Theme Generation:** Type any prompt (*"Vaporwave Sunset"*, *"Cyber Dragon"*) to generate procedural themes.
+- [ ] **Gaze Mini-Games:** Gaze Pong, Blink Speed Test, and Gaze Maze Runner.
+
+---
+
+## 🚀 The 5-Year Vision Horizon (2031 Frontier)
+
+### 🧠 BCI Neural-Interface Hybrid Synthesis
+- [ ] **Non-Invasive BCI Sub-Vocal Commands:** Integrates consumer BCI neural bands to execute gaze actions via silent mental thoughts.
+- [ ] **Cognitive Load Bio-Soothing:** Eyes pulse soft indigo light to calm physical eye strain and mental exhaustion.
+
+### 🥽 AR / VR Spatial Hologram Companion (Apple Vision / Meta Quest Integration)
+- [ ] **Volumetric 3D Hologram Projection:** Projects animated eyes as a 3D volumetric light orb in physical room space via WebXR.
+- [ ] **3D Spatial Gaze Coordinates:** Tracks gaze smoothly between physical desktop monitors and AR virtual screens.
+
+### 🧬 Generative Bio-Avatar Evolution & Health Sensing
+- [ ] **Living Companion Evolution:** Eyes gain XP and mutate unique visual DNA traits based on daily work habits.
+- [ ] **rPPG Contactless Vital Sensing:** Measures real-time heart rate, stress, and oxygen levels via webcam micro-vessel reflections.
+
+### 🌐 Quantum WebGPU Neural Swarm
+- [ ] **Collaborative Multi-User Eye Swarm:** Teammates see synchronized eye avatars floating during remote pair programming & Figma sessions.
+- [ ] **1,000 FPS WebGPU Neural Pipeline:** Local browser neural network models operating at 0.1ms latency with zero CPU usage.
+
+### 🤖 Autonomous AI Screen Operator (Full Autonomous PC Control)
+- [ ] **Gaze-Directed Autonomous Agent:** Look at any complex workflow and say *"Automate this"*, allowing the AI companion to execute mouse actions autonomously while you watch.
+
 ---
 
 ## 🛠️ Quick Start (Development)
