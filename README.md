@@ -75,7 +75,7 @@ Eye Tracker Studio turns your cursor and camera into a high-performance 60 FPS i
 
 ---
 
-## 🤖 Futuristic AI Features Roadmap
+## 🤖 Next-Gen AI & Spatial Computing Roadmap
 
 ### 🤖 Multimodal Vision AI ("What Are You Looking At?")
 - [ ] **AI Gaze Scene Explainer:** Hold your gaze on any code block, image, or chart on screen to get an instant AI vision summary!
@@ -86,7 +86,7 @@ Eye Tracker Studio turns your cursor and camera into a high-performance 60 FPS i
 - [ ] **AI Drowsiness & Yawn Safety Guard:** Detects eye strain, frequent blinks, or yawns to suggest 20-second eye relaxation breaks.
 
 ### 🎯 AI Intent Pointer & Smart Gestures
-- [ ] **AI Target Snap-to-Button:** Predicts intended click targets from gaze trajectories and snaps the reticle smoothly to buttons.
+- [ ] **AI Target Snap-to-Button:** Predicts intended click targets from gaze velocity and snaps the reticle smoothly to buttons.
 - [ ] **AI Camera Gestures:**
   - **Head Nod:** Confirm / Select
   - **Head Shake:** Cancel / Back
@@ -96,6 +96,21 @@ Eye Tracker Studio turns your cursor and camera into a high-performance 60 FPS i
 ### 🗣️ AI Voice & Audio Companion
 - [ ] **Interactive AI Voice Personality:** Give the animated eyes a voice assistant persona that speaks back when you command them!
 - [ ] **Adaptive Generative Audio:** Background ambient music tempo adapts to your mouse speed and focus state.
+
+### 🌐 Spatial AI & Multi-Monitor Companion
+- [ ] **Multi-Monitor Gaze Teleportation:** Eyes jump across dual/triple monitors seamlessly as gaze shifts screens!
+- [ ] **3D Parallax Perspective Depth:** Eyes tilt in 3D perspective based on head distance from webcam.
+
+### 🎥 Streamer & Gaming Overlay Suite
+- [ ] **Twitch/YouTube Live Gaze Overlay:** Stream real-time gaze heatmaps over games so viewers see your eye target.
+- [ ] **Twitch Chat Emoji Reactions:** Eyes trigger custom animations on Twitch chat emojis (`Pog`, `LUL`, `❤️`).
+
+### 🔒 AI Biometric Security & Privacy Guard
+- [ ] **AI Glance Privacy Shield (Peeping Guard):** Automatically blurs sensitive windows when an unknown face appears behind you!
+- [ ] **Biometric Eye-Blink Unlock:** Trigger shortcuts using custom blink combinations (`Right Wink -> Left Wink`).
+
+### 🎨 AI Text-to-Eye Theme Generator
+- [ ] **Prompt-to-Theme Generator:** Type any theme description (*"Vaporwave Sunset"*, *"Steampunk Brass"*) to procedurally generate a custom eye theme!
 
 ---
 
