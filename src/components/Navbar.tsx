@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, Camera, Activity, Zap, Sparkles, Target, Flame, Mic, Gamepad2, Volume2, VolumeX, Sun, Pin } from 'lucide-react';
+import { Eye, Camera, Activity, Zap, Sparkles, Target, Mic, Gamepad2, Volume2, VolumeX, Sun, Pin, Flame } from 'lucide-react';
 import type { EyeTheme } from '../engine/EyeEngine';
 
 interface NavbarProps {
@@ -51,6 +51,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   toggleTopBarWidgetMode,
 }) => {
   const themes: { id: EyeTheme; label: string; icon: string }[] = [
+    { id: 'cute', label: 'Cute Sparkle', icon: '✨' },
     { id: 'natural', label: 'Natural', icon: '👁️' },
     { id: 'cyberpunk', label: 'Cyberpunk', icon: '⚡' },
     { id: 'cat', label: 'Cat Slit', icon: '🐱' },

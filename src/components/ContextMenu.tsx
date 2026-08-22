@@ -60,6 +60,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   if (!isOpen) return null;
 
   const themes: { id: EyeTheme; label: string; icon: string }[] = [
+    { id: 'cute', label: 'Cute Sparkle', icon: '✨' },
     { id: 'natural', label: 'Natural', icon: '👁️' },
     { id: 'cyberpunk', label: 'Cyberpunk', icon: '⚡' },
     { id: 'cat', label: 'Cat Slit', icon: '🐱' },

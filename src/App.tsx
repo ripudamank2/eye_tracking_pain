@@ -18,7 +18,7 @@ export function App() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // App State
-  const [theme, setTheme] = useState<EyeTheme>('natural');
+  const [theme, setTheme] = useState<EyeTheme>('cute');
   const [webcamActive, setWebcamActive] = useState(false);
   const [laserMode, setLaserMode] = useState(false);
   const [trailMode, setTrailMode] = useState(true);

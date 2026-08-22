@@ -1,6 +1,6 @@
-// High-Performance 60 FPS HTML5 Canvas Eye Renderer & Expression Engine
+// High-Performance 60 FPS HTML5 Canvas Eye Renderer with Organic Eyelids & Natural Blinking
 
-export type EyeTheme = 'natural' | 'cyberpunk' | 'cat' | 'googly' | 'pixel' | 'robot';
+export type EyeTheme = 'cute' | 'natural' | 'cyberpunk' | 'cat' | 'googly' | 'pixel' | 'robot';
 
 export interface EyeOptions {
   theme: EyeTheme;
@@ -23,6 +23,15 @@ export class EyeEngine {
   private springVy = 0;
   private lastTargetX = 0;
   private lastTargetY = 0;
+
+  // Organic Blinking System
+  private blinkTimer = 0;
+  private nextBlinkInterval = 3.5; // seconds until next blink
+  private isBlinking = false;
+  private blinkProgress = 0; // 0 (open) -> 1 (closed) -> 0 (open)
+  private blinkDuration = 0.14; // 140ms total blink duration
+  private blinkElapsed = 0;
+  private isDoubleBlinking = false;
 
   public update(options: EyeOptions, dt: number) {
     const dx = options.targetX - this.lastTargetX;
@@ -53,6 +62,41 @@ export class EyeEngine {
     if (options.velocity > 1200) {
       this.spinAngle += (options.velocity / 1200) * dt * Math.PI * 4;
     }
+
+    // --- Organic Natural Blinking Logic ---
+    this.blinkTimer += dt;
+
+    if (!this.isBlinking && this.blinkTimer >= this.nextBlinkInterval) {
+      this.isBlinking = true;
+      this.blinkElapsed = 0;
+      this.blinkTimer = 0;
+      // Randomize next blink between 2.5s and 4.8s, with 20% chance of double blink
+      this.isDoubleBlinking = Math.random() < 0.2;
+      this.nextBlinkInterval = 2.5 + Math.random() * 2.3;
+    }
+
+    if (this.isBlinking) {
+      this.blinkElapsed += dt;
+      const half = this.blinkDuration / 2;
+
+      if (this.blinkElapsed <= half) {
+        // Closing top eyelid
+        this.blinkProgress = Math.sin((this.blinkElapsed / half) * (Math.PI / 2));
+      } else if (this.blinkElapsed <= this.blinkDuration) {
+        // Opening top eyelid
+        this.blinkProgress = Math.sin(((this.blinkDuration - this.blinkElapsed) / half) * (Math.PI / 2));
+      } else {
+        this.blinkProgress = 0;
+
+        if (this.isDoubleBlinking) {
+          // Trigger second quick blink immediately
+          this.isDoubleBlinking = false;
+          this.blinkElapsed = 0;
+        } else {
+          this.isBlinking = false;
+        }
+      }
+    }
   }
 
   public draw(ctx: CanvasRenderingContext2D, options: EyeOptions) {
@@ -73,11 +117,15 @@ export class EyeEngine {
     // Dynamic Dilated pupil factor for Surprised state
     const pupilScale = options.clickBurstCount >= 2 ? 1.4 : 1.0;
 
-    // Eyelid droop for Sleepy state
-    let eyelidLevel = options.isIdle ? 0.6 : 0;
-    if (options.isWinking) eyelidLevel = 0.95;
+    // Calculate Combined Eyelid Closure (Natural blink + Sleepy idle + Wink)
+    let eyelidLevel = this.blinkProgress;
+    if (options.isIdle) eyelidLevel = Math.max(eyelidLevel, 0.55);
+    if (options.isWinking) eyelidLevel = 1.0;
 
     switch (options.theme) {
+      case 'cute':
+        this.drawCute(ctx, options.radius, pupilX, pupilY, pupilScale, eyelidLevel);
+        break;
       case 'cyberpunk':
         this.drawCyberpunk(ctx, options.radius, angle, pupilX, pupilY, eyelidLevel);
         break;
@@ -98,6 +146,109 @@ export class EyeEngine {
         this.drawNatural(ctx, options.radius, pupilX, pupilY, pupilScale, eyelidLevel);
         break;
     }
+
+    ctx.restore();
+  }
+
+  // Draw Adorable Organic Curved Eyelids & Eyelashes
+  private drawOrganicEyelids(ctx: CanvasRenderingContext2D, r: number, eyelidLevel: number, skinColor = '#0f172a', lineStyle = '#06b6d4') {
+    if (eyelidLevel <= 0.01) return;
+
+    ctx.save();
+    // Top Eyelid Arc (sweeps down naturally over the eyeball)
+    const topCapY = -r - 5;
+    const lidMaxY = r * 1.05;
+    const currentY = -r + (lidMaxY + r) * Math.min(1.0, eyelidLevel);
+
+    ctx.beginPath();
+    ctx.moveTo(-r - 4, topCapY);
+    ctx.lineTo(r + 4, topCapY);
+    ctx.lineTo(r + 4, currentY);
+    ctx.quadraticCurveTo(0, currentY + r * 0.25 * eyelidLevel, -r - 4, currentY);
+    ctx.closePath();
+
+    ctx.fillStyle = skinColor;
+    ctx.fill();
+
+    // Eyelid Contour Line & Cute Lash Outline
+    ctx.beginPath();
+    ctx.moveTo(-r - 2, currentY);
+    ctx.quadraticCurveTo(0, currentY + r * 0.25 * eyelidLevel, r + 2, currentY);
+    ctx.strokeStyle = lineStyle;
+    ctx.lineWidth = Math.max(2, r * 0.08);
+    ctx.lineCap = 'round';
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  // --- Cute Anime Glossy Sparkle Eyes Theme ---
+  private drawCute(
+    ctx: CanvasRenderingContext2D,
+    r: number,
+    px: number,
+    py: number,
+    pupilScale: number,
+    eyelid: number
+  ) {
+    // Cute Pink Blush Aura below eye
+    ctx.beginPath();
+    ctx.ellipse(0, r * 0.85, r * 0.7, r * 0.25, 0, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(244, 114, 182, 0.35)';
+    ctx.fill();
+
+    // Sclera (White background with soft cyan/pink gradient)
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    const scleraGrad = ctx.createRadialGradient(0, 0, r * 0.1, 0, 0, r);
+    scleraGrad.addColorStop(0, '#ffffff');
+    scleraGrad.addColorStop(0.85, '#f1f5f9');
+    scleraGrad.addColorStop(1, '#e2e8f0');
+    ctx.fillStyle = scleraGrad;
+    ctx.fill();
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = '#38bdf8';
+    ctx.stroke();
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(0, 0, r - 1, 0, Math.PI * 2);
+    ctx.clip();
+
+    // Adorable Large Iris
+    const irisR = r * 0.58;
+    ctx.beginPath();
+    ctx.arc(px, py, irisR, 0, Math.PI * 2);
+    const irisGrad = ctx.createRadialGradient(px, py, 2, px, py, irisR);
+    irisGrad.addColorStop(0, '#38bdf8');
+    irisGrad.addColorStop(0.5, '#0284c7');
+    irisGrad.addColorStop(0.85, '#0369a1');
+    irisGrad.addColorStop(1, '#0c4a6e');
+    ctx.fillStyle = irisGrad;
+    ctx.fill();
+
+    // Deep Pupil
+    const pupilR = irisR * 0.42 * pupilScale;
+    ctx.beginPath();
+    ctx.arc(px, py, pupilR, 0, Math.PI * 2);
+    ctx.fillStyle = '#070a13';
+    ctx.fill();
+
+    // Double Glossy Catchlight Sparkles (Cute Anime Eye Reflection!)
+    // Big catchlight (top-left)
+    ctx.beginPath();
+    ctx.arc(px - irisR * 0.32, py - irisR * 0.32, irisR * 0.26, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+    ctx.fill();
+
+    // Small accent catchlight (bottom-right)
+    ctx.beginPath();
+    ctx.arc(px + irisR * 0.28, py + irisR * 0.28, irisR * 0.14, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+    ctx.fill();
+
+    // Draw Eyelids & Eyelashes
+    this.drawOrganicEyelids(ctx, r, eyelid, '#090d16', '#f472b6');
 
     ctx.restore();
   }
@@ -147,15 +298,12 @@ export class EyeEngine {
 
     // Gloss Reflection
     ctx.beginPath();
-    ctx.arc(px - irisR * 0.3, py - irisR * 0.3, irisR * 0.2, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+    ctx.arc(px - irisR * 0.3, py - irisR * 0.3, irisR * 0.22, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
     ctx.fill();
 
-    // Eyelid
-    if (eyelid > 0) {
-      ctx.fillStyle = '#0f172a';
-      ctx.fillRect(-r, -r, r * 2, r * 2 * eyelid);
-    }
+    // Draw Organic Eyelid
+    this.drawOrganicEyelids(ctx, r, eyelid, '#0f172a', '#38bdf8');
 
     ctx.restore();
   }
@@ -187,8 +335,6 @@ export class EyeEngine {
     ctx.arc(px, py, r * 0.4, 0, Math.PI * 2);
     ctx.fillStyle = '#10b981';
     ctx.fill();
-    ctx.shadowColor = '#10b981';
-    ctx.shadowBlur = 12;
 
     // Crosshair Lines
     ctx.beginPath();
@@ -199,12 +345,8 @@ export class EyeEngine {
     ctx.strokeStyle = '#090d16';
     ctx.lineWidth = 2;
     ctx.stroke();
-    ctx.shadowBlur = 0;
 
-    if (eyelid > 0) {
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
-      ctx.fillRect(-r, -r, r * 2, r * 2 * eyelid);
-    }
+    this.drawOrganicEyelids(ctx, r, eyelid, '#090d16', '#ec4899');
   }
 
   private drawCat(
@@ -214,33 +356,23 @@ export class EyeEngine {
     py: number,
     eyelid: number
   ) {
-    // Amber Sclera
+    // Golden Sclera
     ctx.beginPath();
     ctx.arc(0, 0, r, 0, Math.PI * 2);
-    ctx.fillStyle = '#f59e0b';
+    const catGrad = ctx.createRadialGradient(0, 0, 2, 0, 0, r);
+    catGrad.addColorStop(0, '#fef08a');
+    catGrad.addColorStop(0.6, '#f59e0b');
+    catGrad.addColorStop(1, '#b45309');
+    ctx.fillStyle = catGrad;
     ctx.fill();
 
-    ctx.save();
+    // Vertical Cat Slit Pupil
     ctx.beginPath();
-    ctx.arc(0, 0, r - 1, 0, Math.PI * 2);
-    ctx.clip();
-
-    // Slit Pupil
-    ctx.save();
-    ctx.translate(px, py);
-    ctx.scale(0.25, 0.9);
-    ctx.beginPath();
-    ctx.arc(0, 0, r * 0.65, 0, Math.PI * 2);
-    ctx.fillStyle = '#0f172a';
+    ctx.ellipse(px, py, r * 0.12, r * 0.6, 0, 0, Math.PI * 2);
+    ctx.fillStyle = '#090d16';
     ctx.fill();
-    ctx.restore();
 
-    if (eyelid > 0) {
-      ctx.fillStyle = '#1e1b4b';
-      ctx.fillRect(-r, -r, r * 2, r * 2 * eyelid);
-    }
-
-    ctx.restore();
+    this.drawOrganicEyelids(ctx, r, eyelid, '#0f172a', '#f59e0b');
   }
 
   private drawGoogly(
@@ -250,32 +382,22 @@ export class EyeEngine {
     py: number,
     eyelid: number
   ) {
-    // Big White Sclera
+    // Plastic Shell
     ctx.beginPath();
     ctx.arc(0, 0, r, 0, Math.PI * 2);
     ctx.fillStyle = '#ffffff';
     ctx.fill();
-    ctx.strokeStyle = '#94a3b8';
     ctx.lineWidth = 3;
+    ctx.strokeStyle = '#94a3b8';
     ctx.stroke();
 
-    ctx.save();
+    // Loose Physics Pupil
     ctx.beginPath();
-    ctx.arc(0, 0, r - 2, 0, Math.PI * 2);
-    ctx.clip();
-
-    // Loose Bouncing Pupil
-    ctx.beginPath();
-    ctx.arc(px, py, r * 0.45, 0, Math.PI * 2);
+    ctx.arc(px, py, r * 0.4, 0, Math.PI * 2);
     ctx.fillStyle = '#020617';
     ctx.fill();
 
-    if (eyelid > 0) {
-      ctx.fillStyle = '#334155';
-      ctx.fillRect(-r, -r, r * 2, r * 2 * eyelid);
-    }
-
-    ctx.restore();
+    this.drawOrganicEyelids(ctx, r, eyelid, '#1e293b', '#94a3b8');
   }
 
   private drawPixel(
@@ -284,26 +406,19 @@ export class EyeEngine {
     angle: number,
     eyelid: number
   ) {
-    const size = Math.floor(r / 4);
+    const size = Math.round(r / 4);
+    ctx.fillStyle = '#38bdf8';
+    ctx.fillRect(-size * 2, -size * 2, size * 4, size * 4);
 
-    // Pixel box sclera (8x8)
-    ctx.fillStyle = '#f8fafc';
-    ctx.fillRect(-4 * size, -4 * size, 8 * size, 8 * size);
+    const px = Math.round(Math.cos(angle)) * size;
+    const py = Math.round(Math.sin(angle)) * size;
 
-    // Pixel iris (4x4)
-    const stepX = Math.round(Math.cos(angle) * 1.5) * size;
-    const stepY = Math.round(Math.sin(angle) * 1.5) * size;
-    ctx.fillStyle = '#3b82f6';
-    ctx.fillRect(-2 * size + stepX, -2 * size + stepY, 4 * size, 4 * size);
-
-    // Pixel pupil (2x2)
-    ctx.fillStyle = '#0f172a';
-    ctx.fillRect(-1 * size + stepX, -1 * size + stepY, 2 * size, 2 * size);
+    ctx.fillStyle = '#090d16';
+    ctx.fillRect(px - size / 2, py - size / 2, size, size);
 
     if (eyelid > 0) {
-      const rows = Math.floor(8 * eyelid);
       ctx.fillStyle = '#090d16';
-      ctx.fillRect(-4 * size, -4 * size, 8 * size, rows * size);
+      ctx.fillRect(-size * 2, -size * 2, size * 4, size * 4 * eyelid);
     }
   }
 
@@ -314,33 +429,18 @@ export class EyeEngine {
     py: number,
     eyelid: number
   ) {
-    // Dark Metallic Base
+    // Metallic Bezel
     ctx.beginPath();
     ctx.arc(0, 0, r, 0, Math.PI * 2);
-    ctx.fillStyle = '#1e293b';
+    ctx.fillStyle = '#334155';
     ctx.fill();
-    ctx.strokeStyle = '#38bdf8';
-    ctx.lineWidth = 2;
-    ctx.stroke();
 
-    // Concentric Radar Rings
+    // Inner Glowing Lens
     ctx.beginPath();
-    ctx.arc(0, 0, r * 0.7, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
-    ctx.stroke();
-
-    // Red Laser Iris
-    ctx.beginPath();
-    ctx.arc(px, py, r * 0.35, 0, Math.PI * 2);
-    ctx.fillStyle = '#ef4444';
+    ctx.arc(px, py, r * 0.5, 0, Math.PI * 2);
+    ctx.fillStyle = '#f43f5e';
     ctx.fill();
-    ctx.shadowColor = '#ef4444';
-    ctx.shadowBlur = 10;
 
-    if (eyelid > 0) {
-      ctx.fillStyle = '#0f172a';
-      ctx.fillRect(-r, -r, r * 2, r * 2 * eyelid);
-    }
-    ctx.shadowBlur = 0;
+    this.drawOrganicEyelids(ctx, r, eyelid, '#0f172a', '#f43f5e');
   }
 }
