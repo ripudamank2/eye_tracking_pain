@@ -75,52 +75,37 @@ Eye Tracker Studio turns your cursor and camera into a high-performance 60 FPS i
 
 ---
 
-## 🤖 Next-Gen AI & Spatial Computing Roadmap
+## 🔮 The 10-Step Next-Gen AI Paradigm Roadmap
 
-### 🤖 Multimodal Vision AI ("What Are You Looking At?")
-- [ ] **AI Gaze Scene Explainer:** Hold your gaze on any code block, image, or chart on screen to get an instant AI vision summary!
-- [ ] **AI Reading Assistant:** Highlights and defines complex terms as your gaze scans text.
+### Step 1: 🧠 Cognitive Pupillometry & Attention Analysis
+- [ ] **Task-Evoked Pupil Dilations:** Measures cognitive load & micro-frustration in real-time to adjust UI legibility.
+- [ ] **Foveal Speed Reading Mode:** Stream 1,000 WPM text directly into your gaze focus zone.
 
-### 🧠 Emotion AI & Mood Synchronization
-- [ ] **AI Mood & Facial Expression Sync:** Real-time facial sentiment analysis via webcam so the eyes mirror your exact mood (Happy, Surprised, Confused, Focused, Tired).
-- [ ] **AI Drowsiness & Yawn Safety Guard:** Detects eye strain, frequent blinks, or yawns to suggest 20-second eye relaxation breaks.
+### Step 2: ⚡ Micro-Saccade Telepathy (Zero-Latency Intent)
+- [ ] **Predictive Target Trajectory:** Detects 10ms micro-saccades before hand movement to snap cursor pre-emptively.
 
-### 🎯 AI Intent Pointer & Smart Gestures
-- [ ] **AI Target Snap-to-Button:** Predicts intended click targets from gaze velocity and snaps the reticle smoothly to buttons.
-- [ ] **AI Camera Gestures:**
-  - **Head Nod:** Confirm / Select
-  - **Head Shake:** Cancel / Back
-  - **Smile:** Trigger heart burst particles!
-  - **Left Wink:** Left-click | **Right Wink:** Right-click
+### Step 3: 🎭 Living AI Digital Companion (Autonomous Soul Engine)
+- [ ] **Autonomous Behavior States:** Eyes explore screen, inspect open windows, and chase particles independently when idle.
+- [ ] **Multimodal "Look & Command":** Look at *any* screen region and say *"Explain"*, *"Translate"*, or *"Summarize"*.
 
-### 🗣️ AI Voice & Audio Companion
-- [ ] **Interactive AI Voice Personality:** Give the animated eyes a voice assistant persona that speaks back when you command them!
-- [ ] **Adaptive Generative Audio:** Background ambient music tempo adapts to your mouse speed and focus state.
+### Step 4: 🛡️ Continuous Biometric Iris Guard & Privacy Shield
+- [ ] **Passive Eye-Reflection Security:** Continuous ocular reflection authentication; instant screen lock if looking away.
+- [ ] **Peeping Guard:** Automatically blurs sensitive windows when an unknown face walks behind you.
 
-### 🌐 Spatial AI & Multi-Monitor Companion
-- [ ] **Multi-Monitor Gaze Teleportation:** Eyes jump across dual/triple monitors seamlessly as gaze shifts screens!
-- [ ] **3D Parallax Perspective Depth:** Eyes tilt in 3D perspective based on head distance from webcam.
+### Step 5: 🌐 Spatial 3D Lighting & Multi-Monitor Teleportation
+- [ ] **Webcam Ambient Relighting:** Eyes cast dynamic 3D shadows matching room lighting & desktop window colors.
+- [ ] **Multi-Display Seamless Jump:** Eyes teleport smoothly across multi-monitor setups.
 
-### 🎥 Streamer & Gaming Overlay Suite
-- [ ] **Twitch/YouTube Live Gaze Overlay:** Stream real-time gaze heatmaps over games so viewers see your eye target.
-- [ ] **Twitch Chat Emoji Reactions:** Eyes trigger custom animations on Twitch chat emojis (`Pog`, `LUL`, `❤️`).
+### Step 6: 🎥 Twitch / YouTube Streamer Overlay Suite
+- [ ] **Live Gaze Heatmap Broadcast:** Overlay real-time gaze targeting on live game streams.
+- [ ] **Twitch Chat Emoji Reaction System:** Eyes react dynamically to live chat emotes (`Pog`, `LUL`, `❤️`).
 
-### 🔒 AI Biometric Security & Privacy Guard
-- [ ] **AI Glance Privacy Shield (Peeping Guard):** Automatically blurs sensitive windows when an unknown face appears behind you!
-- [ ] **Biometric Eye-Blink Unlock:** Trigger shortcuts using custom blink combinations (`Right Wink -> Left Wink`).
-
-### 🎨 AI Text-to-Eye Theme Generator
-- [ ] **Prompt-to-Theme Generator:** Type any theme description (*"Vaporwave Sunset"*, *"Steampunk Brass"*) to procedurally generate a custom eye theme!
+### Step 7: 🎨 Generative Prompt-to-Theme Engine
+- [ ] **Text-to-Eye Theme Generation:** Type any prompt (*"Vaporwave Sunset"*, *"Cyber Dragon"*) to generate procedural themes.
 
 ---
 
 ## 🛠️ Quick Start (Development)
-
-### Prerequisites
-- Node.js `v18+` or `v20+`
-- npm `v9+`
-
-### Installation & Local Run
 
 ```bash
 # Clone repository
@@ -138,21 +123,6 @@ Open `http://localhost:5173/` in your browser.
 
 ---
 
-## ⌨️ Desktop Controls & Interactions
-
-| Interaction | Action |
-| :--- | :--- |
-| **Mouse Move / Webcam Gaze** | Eyes follow target with spring physics |
-| **Right-Click Anywhere** | Open Floating Studio Controls Context Menu |
-| **Left Click** | Trigger click burst particles & sound FX |
-| **Rapid Clicks** | Dilate pupils (Surprised state) |
-| **Fast Mouse Flick** | Dizzy pupil spin animation |
-| **Idle (>25s)** | Sleepy eyelids droop |
-
----
-
 ## 🤝 Contributing & License
-
-Feel free to open issues, submit pull requests, or suggest new eye themes!
 
 Distributed under the **MIT License**. Created with ❤️ by the VoltAI Team.
