@@ -34,7 +34,7 @@ Eye Tracker Studio turns your cursor and camera into a high-performance 60 FPS i
 
 ---
 
-## 🚀 Active Feature Modules
+## 🚀 Active Feature Modules (Live in App)
 
 ### 1. 🎯 AI Webcam Iris Accuracy & Blink Detection
 - **MediaPipe 468-Point Face Mesh:** Real-time sub-millimeter iris coordinate tracking via local webcam.
@@ -75,52 +75,68 @@ Eye Tracker Studio turns your cursor and camera into a high-performance 60 FPS i
 
 ---
 
-## 🔮 Complete 10-Step Master Feature & AI Roadmap
+## 🔮 Master Feature & AI Roadmap
 
-### Step 1: 💖 Cute Emotion Engine & Dynamic Expressions
+### 💖 Cute Emotion & Expression Engine
 - [ ] **Happy / Smiling Eyes (`^ ^`):** Eyes squint into cute curved arcs when clicking or moving in circles.
 - [ ] **Love / Heart Pupil Mode (`💖`):** Pupils morph into glowing pulsing hearts on double-click or webcam eye contact.
 - [ ] **Animated Eyebrows:** Expressive mini eyebrows for surprised, focused, and sleepy moods.
 - [ ] **Gaze Eye-Contact Reaction:** Eyes blush and smile back when AI camera detects direct eye contact!
 
-### Step 2: 🎨 Additional Creative Eye Themes
+### 🎨 Creative Eye Themes
 - [ ] **Anime Heart Eyes:** Pulsing pink heart pupils with star catchlights.
 - [ ] **Dragon / Reptile Eyes:** Glowing golden scales with dynamic pupil slits.
 - [ ] **Cosmic Galaxy Eyes:** Rotating spiral galaxy iris with floating stardust.
 - [ ] **Matrix Code Rain Eyes:** Falling green matrix numbers inside the pupil.
 - [ ] **Fiery Flame Eyes:** Animated flickering flame aura around the iris.
 
-### Step 3: 🧠 Subconscious Pupillometry & Attention Analysis
+### 🧠 Emotion AI & Mood Synchronization
+- [ ] **AI Mood & Facial Expression Sync:** Real-time facial sentiment analysis via webcam so the eyes mirror your exact mood (*Happy, Surprised, Confused, Focused, Tired*).
+- [ ] **AI Drowsiness & Yawn Safety Guard:** Detects eye strain, frequent blinks, or yawns to suggest 20-second eye relaxation breaks.
+
+### 🎯 AI Intent Pointer & Smart Gestures
+- [ ] **AI Target Snap-to-Button:** Predicts intended click targets from gaze velocity and snaps the reticle smoothly to buttons.
+- [ ] **AI Camera Gestures:**
+  - **Head Nod:** Confirm / Select
+  - **Head Shake:** Cancel / Back
+  - **Smile:** Trigger heart burst particles!
+  - **Left Wink:** Left-click | **Right Wink:** Right-click
+
+### 🧠 Subconscious Pupillometry & Attention Analysis
 - [ ] **Task-Evoked Pupil Dilations:** Measures cognitive load & micro-frustration in real-time to adjust UI legibility.
 - [ ] **Foveal Speed Reading Mode:** Stream 1,000 WPM text directly into your gaze focus zone.
 
-### Step 4: ⚡ Micro-Saccade Telepathy (Zero-Latency Intent Pointer)
+### ⚡ Micro-Saccade Telepathy & Hands-Free Tools
 - [ ] **Predictive Target Trajectory:** Detects 10ms micro-saccades before hand movement to snap cursor pre-emptively.
 - [ ] **Gaze Dwell-Click:** Hands-free auto-click when holding gaze on a target for 1.5 seconds.
 
-### Step 5: 🎭 Living AI Digital Companion (Autonomous Soul Engine)
+### 🎭 Living AI Digital Companion (Autonomous Soul Engine)
 - [ ] **Autonomous Behavior States:** Eyes explore screen, inspect open windows, and chase particles independently when idle.
 - [ ] **Multimodal "Look & Command":** Look at *any* screen region and say *"Explain"*, *"Translate"*, or *"Summarize"*.
 
-### Step 6: 🛡️ Continuous Biometric Iris Guard & Privacy Shield
+### 🗣️ AI Voice & Audio Companion
+- [ ] **Interactive AI Voice Personality:** Give the animated eyes a voice assistant persona that speaks back when commanded!
+- [ ] **Adaptive Generative Audio:** Background ambient music tempo adapts to your mouse speed and focus state.
+
+### 🛡️ Continuous Biometric Iris Guard & Security Shield
 - [ ] **Passive Eye-Reflection Security:** Continuous ocular reflection authentication; instant screen lock if looking away.
 - [ ] **Peeping Guard:** Automatically blurs sensitive windows when an unknown face walks behind you.
 
-### Step 7: 🌐 Spatial 3D Lighting & Multi-Monitor Companion
+### 🌐 Spatial 3D Lighting & Multi-Monitor Companion
 - [ ] **Webcam Ambient Relighting:** Eyes cast dynamic 3D shadows matching room lighting & desktop window colors.
 - [ ] **Multi-Display Seamless Jump:** Eyes teleport smoothly across multi-monitor setups.
 
-### Step 8: 🎥 Twitch / YouTube Streamer Overlay Suite
+### 🎥 Twitch / YouTube Streamer Overlay Suite
 - [ ] **Live Gaze Heatmap Broadcast:** Overlay real-time gaze targeting on live game streams.
 - [ ] **Twitch Chat Emoji Reaction System:** Eyes react dynamically to live chat emotes (`Pog`, `LUL`, `❤️`).
 
-### Step 9: 🎯 Presentation, Health & Productivity Tools
+### 🎯 Presentation, Health & Productivity Tools
 - [ ] **Reading Ruler:** Highlighted focus line under the text line your gaze is reading.
 - [ ] **20-20-20 Eye Rest Reminder:** Cute eye-closing animation every 20 minutes to prevent eye strain.
 
-### Step 10: 🎨 Generative Prompt-to-Theme Engine & Mini-Games
+### 🎨 AI Prompt-to-Theme Generator & Mini-Games
 - [ ] **Text-to-Eye Theme Generation:** Type any prompt (*"Vaporwave Sunset"*, *"Cyber Dragon"*) to generate procedural themes.
-- [ ] **Gaze Pong & Blink Speed Test:** Interactive mini-games testing gaze speed and blink reaction time.
+- [ ] **Gaze Mini-Games:** Gaze Pong, Blink Speed Test, and Gaze Maze Runner.
 
 ---
 
