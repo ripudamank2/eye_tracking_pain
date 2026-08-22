@@ -22,6 +22,7 @@
   "build": {
     "appId": "com.eyetracker.studio",
     "productName": "Eye Tracker Studio",
+    "icon": "public/icon.png",
     "directories": {
       "output": "release"
     },
@@ -30,6 +31,7 @@
       "electron/**/*"
     ],
     "linux": {
+      "icon": "public/icon.png",
       "target": [
         "AppImage",
         "deb"
@@ -38,9 +40,11 @@
       "category": "Utility"
     },
     "win": {
+      "icon": "public/icon.png",
       "target": "nsis"
     },
     "mac": {
+      "icon": "public/icon.png",
       "target": "dmg"
     }
   },
