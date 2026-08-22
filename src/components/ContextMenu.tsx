@@ -1,6 +1,7 @@
 import React from 'react';
-import { Camera, Activity, Zap, Sparkles, Target, Gamepad2, Volume2, VolumeX, Sun, SlidersHorizontal, X, Mic, ShieldAlert } from 'lucide-react';
+import { Camera, Activity, Zap, Sparkles, Target, Gamepad2, Volume2, VolumeX, Sun, SlidersHorizontal, X, Mic, ShieldAlert, Move, LayoutGrid } from 'lucide-react';
 import type { EyeTheme } from '../engine/EyeEngine';
+import type { EyePresetPosition } from '../App';
 
 interface ContextMenuProps {
   x: number;
@@ -29,6 +30,8 @@ interface ContextMenuProps {
   showFullNavbar: boolean;
   setShowFullNavbar: (val: boolean) => void;
   triggerEyeBreak: () => void;
+  eyePreset: EyePresetPosition;
+  setEyePreset: (preset: EyePresetPosition) => void;
 }
 
 export const ContextMenu: React.FC<ContextMenuProps> = ({
@@ -58,237 +61,291 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   showFullNavbar,
   setShowFullNavbar,
   triggerEyeBreak,
+  eyePreset,
+  setEyePreset,
 }) => {
   if (!isOpen) return null;
 
+  // Keep menu inside viewport boundaries
+  const adjustedX = Math.min(x, window.innerWidth - 300);
+  const adjustedY = Math.min(y, window.innerHeight - 560);
+
   const themes: { id: EyeTheme; label: string; icon: string }[] = [
-    { id: 'cute', label: 'Cute Sparkle', icon: '✨' },
-    { id: 'natural', label: 'Natural', icon: '👁️' },
+    { id: 'cute', label: 'Cute Anime', icon: '💖' },
     { id: 'cyberpunk', label: 'Cyberpunk', icon: '⚡' },
-    { id: 'cat', label: 'Cat Slit', icon: '🐱' },
-    { id: 'googly', label: 'Googly', icon: '👀' },
-    { id: 'pixel', label: 'Pixel', icon: '👾' },
-    { id: 'robot', label: 'Robot', icon: '🤖' },
+    { id: 'cat', label: 'Neeko Cat', icon: '🐱' },
+    { id: 'robot', label: 'Mecha Bot', icon: '🤖' },
+    { id: 'googly', label: '3D Googly', icon: '👀' },
+    { id: 'pixel', label: 'Pixel Retro', icon: '👾' },
   ];
 
-  const adjustedX = Math.min(x, window.innerWidth - 280);
-  const adjustedY = Math.min(y, window.innerHeight - 520);
+  const presets: { id: EyePresetPosition; label: string }[] = [
+    { id: 'top_center', label: '📌 Top Center' },
+    { id: 'top_left', label: '↖ Top-Left' },
+    { id: 'top_right', label: '↗ Top-Right' },
+    { id: 'center', label: '🎯 Center' },
+    { id: 'bottom_left', label: '↙ Bottom-Left' },
+    { id: 'bottom_right', label: '↘ Bottom-Right' },
+  ];
 
   return (
-    <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 z-40 bg-transparent"
-        onClick={onClose}
-        onContextMenu={(e) => {
-          e.preventDefault();
-          onClose();
-        }}
-      />
+    <div
+      style={{ left: `${adjustedX}px`, top: `${adjustedY}px` }}
+      className="fixed z-50 w-72 bg-slate-900/95 border border-cyan-500/30 rounded-2xl p-4 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150 context-menu-container select-none text-slate-100"
+      onClick={(e) => e.stopPropagation()}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-800">
+        <div className="flex items-center gap-2">
+          <SlidersHorizontal className="w-4 h-4 text-cyan-400" />
+          <span className="font-mono text-xs font-bold uppercase tracking-wider text-slate-200">
+            Studio Controls
+          </span>
+        </div>
+        <button
+          onClick={onClose}
+          className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors cursor-pointer"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
 
-      {/* Main Context Menu Modal Container */}
-      <div
-        className="context-menu-container fixed z-50 bg-slate-900/95 border border-slate-700/80 rounded-2xl shadow-2xl backdrop-blur-xl w-64 p-3 text-slate-100 animate-in fade-in zoom-in-95 duration-100"
-        style={{ left: `${adjustedX}px`, top: `${adjustedY}px` }}
-        onClick={(e) => e.stopPropagation()}
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800">
-          <div className="flex items-center gap-2">
-            <SlidersHorizontal className="w-4 h-4 text-cyan-400" />
-            <span className="text-xs font-black tracking-wider text-cyan-300 uppercase">Studio Controls</span>
+      <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
+        {/* Eye Position Preset Picker */}
+        <div>
+          <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono mb-2">
+            <span className="flex items-center gap-1">
+              <Move className="w-3.5 h-3.5 text-cyan-400" />
+              <span>EYE SCREEN POSITION</span>
+            </span>
+            <span className="text-[10px] text-slate-500 font-sans">Drag or Select</span>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-all cursor-pointer"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
+          <div className="grid grid-cols-2 gap-1.5 text-[11px] font-mono">
+            {presets.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => setEyePreset(p.id)}
+                className={`py-1.5 px-2 rounded-xl text-left font-semibold transition-all cursor-pointer ${
+                  eyePreset === p.id
+                    ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20 font-bold'
+                    : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60'
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Theme Selector Grid */}
-        <div className="mb-3">
-          <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest block mb-1.5">Eye Theme</span>
-          <div className="grid grid-cols-3 gap-1">
+        {/* Theme Picker */}
+        <div>
+          <span className="text-[11px] text-slate-400 font-mono uppercase tracking-wider block mb-2">
+            Eye Themes & Styles
+          </span>
+          <div className="grid grid-cols-2 gap-1.5 text-xs font-mono">
             {themes.map((t) => (
               <button
                 key={t.id}
-                onClick={() => {
-                  setTheme(t.id);
-                }}
-                className={`px-2 py-1.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                onClick={() => setTheme(t.id)}
+                className={`py-1.5 px-2.5 rounded-xl text-left flex items-center gap-2 transition-all cursor-pointer ${
                   currentTheme === t.id
-                    ? 'bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/20 scale-105'
-                    : 'bg-slate-800/60 text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                    ? 'bg-gradient-to-r from-cyan-500 to-sky-600 text-slate-950 font-bold shadow-md shadow-cyan-500/20'
+                    : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60'
                 }`}
               >
                 <span>{t.icon}</span>
-                <span className="text-[11px] truncate">{t.label}</span>
+                <span className="truncate">{t.label}</span>
               </button>
             ))}
           </div>
         </div>
 
-        {/* Primary Actions List */}
-        <div className="space-y-1 mb-3">
-          <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest block mb-1">Features</span>
-
+        {/* Trigger Crying Eyes & Eye Rest Lock Test */}
+        <div>
           <button
             onClick={() => {
+              onClose();
               triggerEyeBreak();
-              onClose();
             }}
-            className="w-full px-2.5 py-1.5 rounded-xl text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 hover:bg-rose-500/30 flex items-center justify-between transition-all cursor-pointer shadow-md shadow-rose-500/10"
+            className="w-full py-2.5 bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 rounded-xl text-xs font-mono font-bold text-rose-300 flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md shadow-rose-500/10"
           >
-            <div className="flex items-center gap-2">
-              <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
-              <span>😭 Crying Eyes & Break Lock</span>
-            </div>
-            <span className="text-[10px] font-mono font-bold">TEST</span>
-          </button>
-
-          <button
-            onClick={() => {
-              toggleWebcam();
-              onClose();
-            }}
-            className={`w-full px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center justify-between transition-all cursor-pointer ${
-              webcamActive ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-slate-800/40 text-slate-300 hover:bg-slate-800'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <Camera className="w-3.5 h-3.5 text-emerald-400" />
-              <span>AI Webcam Tracking</span>
-            </div>
-            <span className="text-[10px] font-mono opacity-80">{webcamActive ? 'ON' : 'OFF'}</span>
-          </button>
-
-          <button
-            onClick={() => {
-              toggleVoice();
-              onClose();
-            }}
-            className={`w-full px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center justify-between transition-all cursor-pointer ${
-              voiceListening ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse' : 'bg-slate-800/40 text-slate-300 hover:bg-slate-800'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <Mic className="w-3.5 h-3.5 text-rose-400" />
-              <span>AI Voice Commands</span>
-            </div>
-            <span className="text-[10px] font-mono">{voiceListening ? 'ON' : 'OFF'}</span>
-          </button>
-
-          <button
-            onClick={() => {
-              openGame();
-              onClose();
-            }}
-            className="w-full px-2.5 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-rose-500/20 to-amber-500/20 hover:from-rose-500/30 hover:to-amber-500/30 text-rose-300 border border-rose-500/30 flex items-center gap-2 transition-all cursor-pointer"
-          >
-            <Gamepad2 className="w-3.5 h-3.5 text-rose-400" />
-            <span>Play Target Shooter</span>
-          </button>
-
-          <button
-            onClick={() => setSpotlightMode((prev) => !prev)}
-            className={`w-full px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center justify-between transition-all cursor-pointer ${
-              spotlightMode ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'bg-slate-800/40 text-slate-300 hover:bg-slate-800'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <Sun className="w-3.5 h-3.5 text-amber-400" />
-              <span>Presenter Spotlight</span>
-            </div>
-            <span className="text-[10px] font-mono">{spotlightMode ? 'ON' : 'OFF'}</span>
-          </button>
-
-          <button
-            onClick={() => setLaserMode((prev) => !prev)}
-            className={`w-full px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center justify-between transition-all cursor-pointer ${
-              laserMode ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40' : 'bg-slate-800/40 text-slate-300 hover:bg-slate-800'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <Target className="w-3.5 h-3.5 text-rose-400" />
-              <span>Laser Reticle</span>
-            </div>
-            <span className="text-[10px] font-mono">{laserMode ? 'ON' : 'OFF'}</span>
-          </button>
-
-          <button
-            onClick={() => setTrailMode((prev) => !prev)}
-            className={`w-full px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center justify-between transition-all cursor-pointer ${
-              trailMode ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-slate-800/40 text-slate-300 hover:bg-slate-800'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <Zap className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Cursor Trail</span>
-            </div>
-            <span className="text-[10px] font-mono">{trailMode ? 'ON' : 'OFF'}</span>
-          </button>
-
-          <button
-            onClick={() => {
-              openSprites();
-              onClose();
-            }}
-            className="w-full px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-800/40 text-slate-300 hover:bg-slate-800 flex items-center gap-2 transition-all cursor-pointer"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-yellow-400" />
-            <span>Particle FX Shapes</span>
-          </button>
-
-          <button
-            onClick={() => {
-              openAnalytics();
-              onClose();
-            }}
-            className="w-full px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center gap-2 transition-all cursor-pointer"
-          >
-            <Activity className="w-3.5 h-3.5 text-indigo-400" />
-            <span>Odometer Analytics</span>
+            <ShieldAlert className="w-4 h-4 text-rose-400" />
+            <span>😭 Crying Eyes & Break Lock</span>
           </button>
         </div>
 
-        {/* Quick Toggles */}
-        <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
-          <div className="flex items-center gap-1">
-            <span className="text-[10px] font-mono text-slate-400 mr-1">Eyes:</span>
-            {[1, 2, 3].map((count) => (
+        {/* Interactive Tools & AI Tracking */}
+        <div>
+          <span className="text-[11px] text-slate-400 font-mono uppercase tracking-wider block mb-2">
+            AI & Interactive Features
+          </span>
+          <div className="space-y-1.5 text-xs">
+            <button
+              onClick={toggleWebcam}
+              className={`w-full py-2 px-3 rounded-xl font-mono flex items-center justify-between transition-all cursor-pointer ${
+                webcamActive
+                  ? 'bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/20'
+                  : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Camera className="w-4 h-4" />
+                <span>AI Camera Eye Tracking</span>
+              </div>
+              <span className="text-[10px] uppercase font-bold">{webcamActive ? 'ON' : 'OFF'}</span>
+            </button>
+
+            <button
+              onClick={toggleVoice}
+              className={`w-full py-2 px-3 rounded-xl font-mono flex items-center justify-between transition-all cursor-pointer ${
+                voiceListening
+                  ? 'bg-rose-500 text-white font-bold shadow-md shadow-rose-500/20 animate-pulse'
+                  : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Mic className="w-4 h-4" />
+                <span>AI Voice Commands</span>
+              </div>
+              <span className="text-[10px] uppercase font-bold">{voiceListening ? 'ON' : 'OFF'}</span>
+            </button>
+
+            <button
+              onClick={() => setShowFullNavbar(!showFullNavbar)}
+              className={`w-full py-2 px-3 rounded-xl font-mono flex items-center justify-between transition-all cursor-pointer ${
+                showFullNavbar
+                  ? 'bg-sky-500 text-slate-950 font-bold shadow-md shadow-sky-500/20'
+                  : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <LayoutGrid className="w-4 h-4" />
+                <span>Full Web Navbar Mode</span>
+              </div>
+              <span className="text-[10px] uppercase font-bold">{showFullNavbar ? 'ON' : 'OFF'}</span>
+            </button>
+
+            <button
+              onClick={() => setLaserMode((prev) => !prev)}
+              className={`w-full py-2 px-3 rounded-xl font-mono flex items-center justify-between transition-all cursor-pointer ${
+                laserMode
+                  ? 'bg-rose-500 text-white font-bold shadow-md shadow-rose-500/20'
+                  : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Target className="w-4 h-4" />
+                <span>Laser Gaze Pointer</span>
+              </div>
+              <span className="text-[10px] uppercase font-bold">{laserMode ? 'ON' : 'OFF'}</span>
+            </button>
+
+            <button
+              onClick={() => setTrailMode((prev) => !prev)}
+              className={`w-full py-2 px-3 rounded-xl font-mono flex items-center justify-between transition-all cursor-pointer ${
+                trailMode
+                  ? 'bg-sky-500 text-slate-950 font-bold shadow-md shadow-sky-500/20'
+                  : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Zap className="w-4 h-4" />
+                <span>Sparkle Cursor Trail</span>
+              </div>
+              <span className="text-[10px] uppercase font-bold">{trailMode ? 'ON' : 'OFF'}</span>
+            </button>
+
+            <button
+              onClick={() => setSpotlightMode((prev) => !prev)}
+              className={`w-full py-2 px-3 rounded-xl font-mono flex items-center justify-between transition-all cursor-pointer ${
+                spotlightMode
+                  ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20'
+                  : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Sun className="w-4 h-4" />
+                <span>Presenter Spotlight Mode</span>
+              </div>
+              <span className="text-[10px] uppercase font-bold">{spotlightMode ? 'ON' : 'OFF'}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Eye Quantity Selector */}
+        <div>
+          <span className="text-[11px] text-slate-400 font-mono uppercase tracking-wider block mb-2">
+            Eye Quantity: {eyeCount} Eyes
+          </span>
+          <div className="grid grid-cols-4 gap-1.5 text-xs font-mono">
+            {[1, 2, 4, 6].map((num) => (
               <button
-                key={count}
-                onClick={() => setEyeCount(count)}
-                className={`w-5 h-5 rounded-md text-[10px] font-bold transition-all cursor-pointer ${
-                  eyeCount === count ? 'bg-cyan-500 text-slate-950' : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+                key={num}
+                onClick={() => setEyeCount(num)}
+                className={`py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+                  eyeCount === num
+                    ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20'
+                    : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60'
                 }`}
               >
-                {count}
+                {num} {num === 1 ? 'Eye' : 'Eyes'}
               </button>
             ))}
           </div>
+        </div>
 
+        {/* Modals & Games */}
+        <div>
+          <span className="text-[11px] text-slate-400 font-mono uppercase tracking-wider block mb-2">
+            Apps & Analytics
+          </span>
+          <div className="grid grid-cols-3 gap-1.5 text-xs font-mono">
+            <button
+              onClick={() => {
+                onClose();
+                openGame();
+              }}
+              className="py-2 bg-slate-800/80 hover:bg-slate-700 text-slate-200 rounded-xl border border-slate-700/60 flex flex-col items-center gap-1 transition-all cursor-pointer"
+            >
+              <Gamepad2 className="w-4 h-4 text-emerald-400" />
+              <span className="text-[10px]">Gaze Game</span>
+            </button>
+
+            <button
+              onClick={() => {
+                onClose();
+                openSprites();
+              }}
+              className="py-2 bg-slate-800/80 hover:bg-slate-700 text-slate-200 rounded-xl border border-slate-700/60 flex flex-col items-center gap-1 transition-all cursor-pointer"
+            >
+              <Sparkles className="w-4 h-4 text-pink-400" />
+              <span className="text-[10px]">Particle Art</span>
+            </button>
+
+            <button
+              onClick={() => {
+                onClose();
+                openAnalytics();
+              }}
+              className="py-2 bg-slate-800/80 hover:bg-slate-700 text-slate-200 rounded-xl border border-slate-700/60 flex flex-col items-center gap-1 transition-all cursor-pointer"
+            >
+              <Activity className="w-4 h-4 text-amber-400" />
+              <span className="text-[10px]">Analytics</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Audio Toggle */}
+        <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
+          <span className="text-xs text-slate-400 font-mono">Sound Effects</span>
           <button
             onClick={() => setSoundEnabled(!soundEnabled)}
-            className="p-1 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 cursor-pointer"
-            title="Toggle Audio"
+            className="p-1.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-300 transition-colors cursor-pointer"
           >
-            {soundEnabled ? <Volume2 className="w-3.5 h-3.5 text-emerald-400" /> : <VolumeX className="w-3.5 h-3.5 text-slate-500" />}
-          </button>
-
-          <button
-            onClick={() => {
-              setShowFullNavbar(!showFullNavbar);
-              onClose();
-            }}
-            className="px-2 py-0.5 rounded-md bg-slate-800 text-[10px] font-mono text-cyan-300 hover:bg-slate-700 cursor-pointer"
-          >
-            {showFullNavbar ? 'Hide Navbar' : 'Show Navbar'}
+            {soundEnabled ? <Volume2 className="w-4 h-4 text-cyan-400" /> : <VolumeX className="w-4 h-4 text-slate-500" />}
           </button>
         </div>
       </div>
-    </>
+    </div>
   );
 };

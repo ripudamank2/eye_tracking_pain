@@ -38,35 +38,23 @@ Eye Tracker Studio turns your cursor and camera into a high-performance 60 FPS i
 
 ### 1. 🎯 AI Webcam Iris Accuracy & Blink Detection
 - **MediaPipe 468-Point Face Mesh:** Real-time sub-millimeter iris coordinate tracking via local webcam.
-- **Smart Smoothing Filter:** Low-pass exponential smoothing to eliminate camera jitter while preserving fast saccadic gaze movements.
-- **Real-time Blink & Wink Detection:** Detects single-eye winks and dual-eye blinks from video frames, triggering matching eyelid closures in the canvas.
+- **Organic Curved Eyelids:** Bezier-curved top & bottom eyelids with eyelashes that adapt naturally to gaze direction.
+- **Automatic Blinking Engine:** Periodic organic blinks (2.5s–4.8s intervals) with 20% double-blink playful patterns.
 
----
+### 2. 💖 7 Eye Themes & Cute Anime Sparkle Mode
+- **7 Themes:** `Cute Anime Sparkle`, `Cyberpunk Neon`, `Neeko Cat`, `Mecha Robot`, `3D Googly`, `Pixel Retro`.
+- **Double Catchlight & Blush Aura:** Shiny double catchlight reflections and soft pink blush glow in Cute mode.
 
-### 2. 💖 Cute Eye Behaviors & Dynamic Expressions
-- **Organic Eyelids & Automatic Blinking:** Natural periodic blinking cycle (2.5s–4.8s) with realistic Bezier curved eyelids and eyelash contours.
-- **😭 Crying Eyes & Eye Strain Safety Lock Screen:** When staring at the screen for too long, the eyes get glossy and stream animated tear drops down the screen, triggering an AI voice warning (*"You've been staring at the screen for too long! Please take an eye break now!"*) and locking interaction with a 2-minute relaxation countdown timer!
-- **Double Blinks & Playful Expressions:** Occasional double-blinks and wink responses on fast cursor movements or mouse clicks.
-- **Expressive States:**
-  - **Sleepy Idle Mode:** Eyes droop gently when no motion is detected for >25 seconds.
-  - **Dizzy Spin Mode:** Pupils spin in dizzy circles during rapid mouse flick movements (>1200 px/s).
-  - **Surprised Dilated Pupils:** Pupils dilate when rapid mouse clicks occur.
+### 3. ✋ Draggable Floating Eyes Anywhere & 6 Position Presets
+- **Direct Click & Drag:** Click and drag directly on the eyes to place them anywhere on your display!
+- **6 Quick Position Presets:** `📌 Top Center`, `↖ Top-Left`, `↗ Top-Right`, `🎯 Center`, `↙ Bottom-Left`, `↘ Bottom-Right`.
 
----
+### 4. 😭 Crying Tears & Dual Lock Mode Safety System
+- **Animated Tear Physics:** Tears stream down from pupils when screen staring threshold is reached.
+- **AI Voice Warning:** Speaks *"You've been staring at the screen for too long! Please take an eye break now."*
+- **Dual Lock Mode Chooser:** Switch between **🖥️ Virtual Auto-Unlock** (2-minute auto countdown lock) or **🔒 Native OS Workstation Lock** (Ubuntu/Windows system lock).
 
-### 3. 🎨 Custom Eye Themes & Visual Styles
-- ✨ **Cute Sparkle (Default):** Anime-style large pupils with double glossy catchlight sparkles and soft pink blush highlights (`#f472b6`).
-- 👁️ **Natural:** Classic human iris with gradient depth and soft lighting reflections.
-- ⚡ **Cyberpunk:** Neon cyan/magenta HUD rings, rotating target arcs, and crosshair overlays.
-- 🐱 **Cat Slit:** Golden amber sclera with dynamic vertical cat pupil slits.
-- 👀 **Googly:** Spring-damper physics simulation for bouncy wobbly googly eyes.
-- 👾 **Pixel:** 8-bit retro arcade pixelated eye blocks.
-- 🤖 **Robot:** Metallic dark bezel with glowing red LED core.
-
----
-
-### 4. 🎮 Interactive FX, Tools & Accessibility
-- 🎯 **Laser Reticle Mode:** High-precision red targeting reticle with futuristic HUD crosshairs.
+### 5. 💡 Presenter Spotlight, Laser & Particle Art
 - 💡 **Presenter Spotlight Mode:** Darkens the rest of your display while focusing a bright spotlight around your active cursor area.
 - ✨ **Particle FX & Trails:** Glowing cursor particle trails with custom sprite shapes (Stars, Hearts, Bubbles, Neon Dust).
 - 🔊 **Web Audio Synthesizer:** Real-time procedural audio pop, laser beam, and power-up sound effects.
@@ -118,67 +106,32 @@ Eye Tracker Studio turns your cursor and camera into a high-performance 60 FPS i
 - [ ] **AI Camera Gestures:** Head Nod (Confirm), Head Shake (Cancel), Smile (Heart particles), Left/Right Winks.
 
 ### 🧠 Subconscious Pupillometry & Attention Analysis
-- [ ] **Task-Evoked Pupil Dilations:** Measures cognitive load & micro-frustration in real-time to adjust UI legibility.
-- [ ] **Foveal Speed Reading Mode:** Stream 1,000 WPM text directly into your gaze focus zone.
+- [ ] **Cognitive Load & Focus Heatmap:** Real-time pupil dilation analysis to map high-focus zones vs fatigue areas on screen.
+- [ ] **Reading Speed & Dyslexia Assistance:** Auto-scrolls documents smoothly matching your eye reading speed.
 
-### ⚡ Micro-Saccade Telepathy & Hands-Free Tools
-- [ ] **Predictive Target Trajectory:** Detects 10ms micro-saccades before hand movement to snap cursor pre-emptively.
-- [ ] **Gaze Dwell-Click:** Hands-free auto-click when holding gaze on a target for 1.5 seconds.
-
-### 🎭 Living AI Digital Companion (Autonomous Soul Engine)
-- [ ] **Autonomous Behavior States:** Eyes explore screen, inspect open windows, and chase particles independently when idle.
-- [ ] **Multimodal "Look & Command":** Look at *any* screen region and say *"Explain"*, *"Translate"*, or *"Summarize"*.
-
-### 🗣️ AI Voice & Audio Companion
-- [ ] **Interactive AI Voice Personality:** Give the animated eyes a voice assistant persona that speaks back when commanded!
-- [ ] **Adaptive Generative Audio:** Background ambient music tempo adapts to your mouse speed and focus state.
-
-### 🛡️ Continuous Biometric Iris Guard & Security Shield
-- [ ] **Passive Eye-Reflection Security:** Continuous ocular reflection authentication; instant screen lock if looking away.
-- [ ] **Peeping Guard:** Automatically blurs sensitive windows when an unknown face walks behind you.
-
-### 🌐 Spatial 3D Lighting & Multi-Monitor Companion
-- [ ] **Webcam Ambient Relighting:** Eyes cast dynamic 3D shadows matching room lighting & desktop window colors.
-- [ ] **Multi-Display Seamless Jump:** Eyes teleport smoothly across multi-monitor setups.
-
-### 🎥 Twitch / YouTube Streamer Overlay Suite
-- [ ] **Live Gaze Heatmap Broadcast:** Overlay real-time gaze targeting on live game streams.
-- [ ] **Twitch Chat Emoji Reaction System:** Eyes react dynamically to live chat emotes (`Pog`, `LUL`, `❤️`).
-
-### 🎯 Presentation, Health & Productivity Tools
-- [ ] **Reading Ruler:** Highlighted focus line under the text line your gaze is reading.
-- [ ] **20-20-20 Eye Rest Reminder:** Cute eye-closing animation every 20 minutes to prevent eye strain.
-
-### 🎨 AI Prompt-to-Theme Generator & Mini-Games
-- [ ] **Text-to-Eye Theme Generation:** Type any prompt (*"Vaporwave Sunset"*, *"Cyber Dragon"*) to generate procedural themes.
-- [ ] **Gaze Mini-Games:** Gaze Pong, Blink Speed Test, and Gaze Maze Runner.
+### 🔮 5-Year Vision Horizon (2031 Frontier)
+- [ ] **Spatial 3D Holographic Eyes (AR/VR Ready):** Full WebXR 3D eye avatar projection into Apple Vision Pro & Meta Quest.
+- [ ] **Brain-Computer Interface (BCI) Hybrid:** Neural-gaze hybrid intent recognition for ultra-fast zero-latency control.
+- [ ] **Autonomous AI Screen Companion:** Animated eye companion that watches your screen, provides contextual code refactoring tips, and interacts conversationally!
 
 ---
 
-## 🚀 The 5-Year Vision Horizon (2031 Frontier)
-
-### 🧠 BCI Neural-Interface Hybrid Synthesis
-- [ ] **Non-Invasive BCI Sub-Vocal Commands:** Integrates consumer BCI neural bands to execute gaze actions via silent mental thoughts.
-- [ ] **Cognitive Load Bio-Soothing:** Eyes pulse soft indigo light to calm physical eye strain and mental exhaustion.
-
-### 🥽 AR / VR Spatial Hologram Companion (Apple Vision / Meta Quest Integration)
-- [ ] **Volumetric 3D Hologram Projection:** Projects animated eyes as a 3D volumetric light orb in physical room space via WebXR.
-- [ ] **3D Spatial Gaze Coordinates:** Tracks gaze smoothly between physical desktop monitors and AR virtual screens.
-
-### 🧬 Generative Bio-Avatar Evolution & Health Sensing
-- [ ] **Living Companion Evolution:** Eyes gain XP and mutate unique visual DNA traits based on daily work habits.
-- [ ] **rPPG Contactless Vital Sensing:** Measures real-time heart rate, stress, and oxygen levels via webcam micro-vessel reflections.
-
-### 🌐 Quantum WebGPU Neural Swarm
-- [ ] **Collaborative Multi-User Eye Swarm:** Teammates see synchronized eye avatars floating during remote pair programming & Figma sessions.
-- [ ] **1,000 FPS WebGPU Neural Pipeline:** Local browser neural network models operating at 0.1ms latency with zero CPU usage.
-
-### 🤖 Autonomous AI Screen Operator (Full Autonomous PC Control)
-- [ ] **Gaze-Directed Autonomous Agent:** Look at any complex workflow and say *"Automate this"*, allowing the AI companion to execute mouse actions autonomously while you watch.
+## 🛠️ Tech Stack
+- **Framework:** React 19 + TypeScript + Vite
+- **Styling:** TailwindCSS v4 + Lucide Icons
+- **AI Computer Vision:** `@mediapipe/face_mesh`
+- **Desktop Runtime:** Electron 35
+- **Audio:** Web Audio API + SpeechSynthesis API
 
 ---
 
-## 🛠️ Quick Start (Development)
+## 💻 Getting Started
+
+### Prerequisites
+- Node.js >= 18.0.0
+- npm >= 9.0.0
+
+### Installation
 
 ```bash
 # Clone repository
@@ -188,27 +141,23 @@ cd eye_tracking_pain
 # Install dependencies
 npm install
 
-# Run local development server (60 FPS Web App)
+# Run web development server
 npm run dev
 ```
 
-Open `http://localhost:5173/` in your browser.
+Open **`http://localhost:5173/`** in your browser!
+
+### Desktop Application
+
+```bash
+# Run Electron desktop mode
+npx electron electron/main.cjs --no-sandbox --ozone-platform=x11
+
+# Build Linux AppImage / .deb package
+npm run build:linux
+```
 
 ---
 
-## ⌨️ Desktop Controls & Interactions
-
-| Interaction | Action |
-| :--- | :--- |
-| **Mouse Move / Webcam Gaze** | Eyes follow target with spring physics |
-| **Right-Click Anywhere** | Open Floating Studio Controls Context Menu |
-| **Left Click** | Trigger click burst particles & sound FX |
-| **Rapid Clicks** | Dilate pupils (Surprised state) |
-| **Fast Mouse Flick** | Dizzy pupil spin animation |
-| **Idle (>25s)** | Sleepy eyelids droop |
-
----
-
-## 🤝 Contributing & License
-
-Distributed under the **MIT License**. Created with ❤️ by the VoltAI Team.
+## 📜 License
+MIT License © 2026 Ripudaman

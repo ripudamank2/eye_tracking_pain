@@ -13,7 +13,9 @@ import type { ParticleShape } from './engine/ParticleEngine';
 import { WebcamTracker } from './services/WebcamTracker';
 import { AudioSynth } from './services/AudioSynth';
 import { VoiceController } from './services/VoiceController';
-import { Mic, SlidersHorizontal } from 'lucide-react';
+import { Mic, SlidersHorizontal, Move } from 'lucide-react';
+
+export type EyePresetPosition = 'top_center' | 'top_left' | 'top_right' | 'bottom_left' | 'bottom_right' | 'center' | 'custom';
 
 export function App() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -28,6 +30,11 @@ export function App() {
   const [spotlightMode, setSpotlightMode] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [particleShape, setParticleShape] = useState<ParticleShape>('default');
+
+  // Eye Screen Positioning & Direct Mouse Drag State
+  const [eyePreset, setEyePreset] = useState<EyePresetPosition>('top_center');
+  const [customEyePos, setCustomEyePos] = useState<{ x: number; y: number } | null>(null);
+  const isDraggingEyesRef = useRef(false);
 
   // Display Mode: Defaults to Clean OS Top Status-Bar Widget Panel!
   const [showFullNavbar, setShowFullNavbar] = useState(false);
@@ -75,6 +82,34 @@ export function App() {
   const clickBurstRef = useRef(0);
   const isWinkingRef = useRef(false);
 
+  // Computed Base Position of Eyes
+  const getEyeCenterCoordinates = (width: number, height: number) => {
+    if (isCrying || isEyeBreakOpen) {
+      // Center eyes when crying or break modal is open
+      return { x: width / 2, y: height / 2 - 160 };
+    }
+
+    if (eyePreset === 'custom' && customEyePos) {
+      return customEyePos;
+    }
+
+    switch (eyePreset) {
+      case 'top_left':
+        return { x: 120, y: 54 };
+      case 'top_right':
+        return { x: width - 120, y: 54 };
+      case 'bottom_left':
+        return { x: 120, y: height - 60 };
+      case 'bottom_right':
+        return { x: width - 120, y: height - 60 };
+      case 'center':
+        return { x: width / 2, y: height / 2 };
+      case 'top_center':
+      default:
+        return { x: width / 2, y: topBarWidgetMode ? 26 : 120 };
+    }
+  };
+
   // Trigger Eye Break
   const triggerEyeBreak = () => {
     setIsCrying(true);
@@ -82,19 +117,16 @@ export function App() {
     continuousActiveSecondsRef.current = 0;
   };
 
-  // Continuous Active Screen Time Tracking (Triggers break after 20 mins of non-stop active use)
+  // Continuous Active Screen Time Tracking
   useEffect(() => {
     const timer = setInterval(() => {
       const timeSinceLastMotion = performance.now() - lastMotionTimeRef.current;
       if (timeSinceLastMotion < 60000) {
-        // Active on screen
         continuousActiveSecondsRef.current += 1;
-        // 20 minutes = 1200 seconds -> Auto Trigger Crying Eyes & Eye Break Lock!
         if (continuousActiveSecondsRef.current >= 1200 && !isEyeBreakOpen) {
           triggerEyeBreak();
         }
       } else {
-        // User stepped away / idle -> Reset screen time clock
         continuousActiveSecondsRef.current = 0;
       }
     }, 1000);
@@ -236,26 +268,25 @@ export function App() {
 
       particleEngineRef.current.update(dt);
 
-      // Presenter Spotlight Mode
       if (spotlightMode) {
         particleEngineRef.current.drawSpotlight(ctx, canvas.width, canvas.height, targetX, targetY);
       }
 
-      // Draw Heatmap
       if (showHeatmap) {
         particleEngineRef.current.drawHeatmap(ctx);
       }
 
-      // Draw Trail
       if (trailMode) {
         particleEngineRef.current.drawTrail(ctx);
       }
 
-      // Draw Eyes Centered at Top of Screen
-      const radius = topBarWidgetMode ? 14 : 32;
-      const spacing = topBarWidgetMode ? 36 : 80;
-      const startX = canvas.width / 2 - ((eyeCount - 1) * spacing) / 2;
-      const startY = topBarWidgetMode ? 26 : 120;
+      // Compute Eye Positions based on Preset / Drag
+      const radius = topBarWidgetMode && eyePreset === 'top_center' ? 14 : 28;
+      const spacing = topBarWidgetMode && eyePreset === 'top_center' ? 36 : 64;
+
+      const centerPos = getEyeCenterCoordinates(canvas.width, canvas.height);
+      const startX = centerPos.x - ((eyeCount - 1) * spacing) / 2;
+      const startY = centerPos.y;
 
       eyeEngineRef.current.update(
         {
@@ -291,11 +322,9 @@ export function App() {
         });
       }
 
-      // Draw Particles & Badges
       particleEngineRef.current.drawParticles(ctx);
       particleEngineRef.current.drawBadges(ctx);
 
-      // Draw Laser Reticle
       if (laserMode) {
         particleEngineRef.current.drawLaserReticle(ctx, targetX, targetY);
       }
@@ -309,18 +338,33 @@ export function App() {
       window.removeEventListener('resize', handleResize);
       cancelAnimationFrame(animationFrameId);
     };
-  }, [theme, webcamActive, laserMode, trailMode, particlesMode, showHeatmap, spotlightMode, eyeCount, topBarWidgetMode, isCrying]);
+  }, [theme, webcamActive, laserMode, trailMode, particlesMode, showHeatmap, spotlightMode, eyeCount, topBarWidgetMode, isCrying, eyePreset, customEyePos]);
 
-  // Event Listeners for Mouse Motion & Clicks
+  // Event Listeners for Mouse Motion, Direct Eye Dragging & Clicks
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       mousePosRef.current = { x: e.clientX, y: e.clientY };
+
+      if (isDraggingEyesRef.current) {
+        setEyePreset('custom');
+        setCustomEyePos({ x: e.clientX, y: e.clientY });
+      }
     };
 
     const handleMouseDown = (e: MouseEvent) => {
-      // Ignore click if clicking inside context menu
       const targetEl = e.target as HTMLElement | null;
       if (targetEl && targetEl.closest('.context-menu-container')) {
+        return;
+      }
+
+      // Check if clicking near eyes to start Dragging Anywhere!
+      const centerPos = getEyeCenterCoordinates(window.innerWidth, window.innerHeight);
+      const distToEyes = Math.hypot(e.clientX - centerPos.x, e.clientY - centerPos.y);
+
+      if (distToEyes < 60 && e.button === 0) {
+        isDraggingEyesRef.current = true;
+        setEyePreset('custom');
+        setCustomEyePos({ x: e.clientX, y: e.clientY });
         return;
       }
 
@@ -353,7 +397,10 @@ export function App() {
       }
     };
 
-    // Right-Click Event Listener -> Open Studio Context Menu!
+    const handleMouseUp = () => {
+      isDraggingEyesRef.current = false;
+    };
+
     const handleContextMenu = (e: MouseEvent) => {
       e.preventDefault();
       setContextMenuState({
@@ -366,16 +413,17 @@ export function App() {
 
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('mouseup', handleMouseUp);
     window.addEventListener('contextmenu', handleContextMenu);
 
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('mouseup', handleMouseUp);
       window.removeEventListener('contextmenu', handleContextMenu);
     };
-  }, [particlesMode, laserMode]);
+  }, [particlesMode, laserMode, eyePreset, customEyePos, isCrying, isEyeBreakOpen, topBarWidgetMode]);
 
-  // Toggle Webcam
   const toggleWebcam = async () => {
     if (webcamActive) {
       webcamTrackerRef.current.stop();
@@ -429,6 +477,20 @@ export function App() {
           >
             <SlidersHorizontal className="w-3.5 h-3.5" />
             <span>Right-Click for Studio Menu</span>
+          </button>
+        </div>
+      )}
+
+      {/* Live Drag Hint Pill when custom dragging */}
+      {eyePreset === 'custom' && (
+        <div className="absolute top-3 left-4 z-40 bg-slate-900/90 border border-cyan-500/40 rounded-xl px-3 py-1 flex items-center gap-1.5 text-[11px] font-mono text-cyan-300 shadow-xl backdrop-blur-md">
+          <Move className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+          <span>Custom Eyes Position (Click & Drag Eyes)</span>
+          <button
+            onClick={() => setEyePreset('top_center')}
+            className="ml-2 px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300 rounded border border-slate-700 transition-colors"
+          >
+            Reset
           </button>
         </div>
       )}
@@ -494,6 +556,8 @@ export function App() {
         showFullNavbar={showFullNavbar}
         setShowFullNavbar={setShowFullNavbar}
         triggerEyeBreak={triggerEyeBreak}
+        eyePreset={eyePreset}
+        setEyePreset={setEyePreset}
       />
 
       {/* Eye Rest Break Safety Lock Modal */}
