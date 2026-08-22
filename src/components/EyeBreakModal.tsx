@@ -31,7 +31,7 @@ export const EyeBreakModal: React.FC<EyeBreakModalProps> = ({
     }
   };
 
-  // Speech Alert Effect: Repeats warning 2 times during break, stops immediately when closed
+  // Speech Alert Effect: Plays clearly once when opened, stops cleanly when closed
   useEffect(() => {
     if (isOpen && !hasSpokenRef.current) {
       hasSpokenRef.current = true;
@@ -102,7 +102,7 @@ export const EyeBreakModal: React.FC<EyeBreakModalProps> = ({
   const formattedTime = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-2xl flex items-center justify-center p-4 animate-in fade-in zoom-in-95 duration-200 select-none">
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in zoom-in-95 duration-200 select-none">
       <div className="bg-slate-900/95 border border-cyan-500/50 rounded-3xl p-8 max-w-md w-full text-center shadow-2xl relative overflow-hidden">
         {/* Background Radial Glow */}
         <div className="absolute -top-24 -left-24 w-64 h-64 bg-cyan-500/20 rounded-full blur-3xl" />
