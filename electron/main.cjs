@@ -28,6 +28,7 @@ function createWindow() {
     height: 54,
     x: 0,
     y: 0,
+    center: false,
     title: 'Eye Tracker Studio',
     transparent: true,
     backgroundColor: '#00000000',
@@ -41,6 +42,9 @@ function createWindow() {
       contextIsolation: false,
     },
   });
+
+  // Force snap to top-left (0, 0) on Linux GNOME / X11 / Wayland
+  mainWindow.setPosition(0, 0);
 
   const distPath = path.join(__dirname, '../dist/index.html');
 
@@ -93,6 +97,7 @@ function toggleWidgetMode(enableWidget) {
     mainWindow.setAlwaysOnTop(true, 'screen-saver');
     mainWindow.setSkipTaskbar(true);
     mainWindow.setBounds({ x: 0, y: 0, width: width, height: 54 });
+    mainWindow.setPosition(0, 0);
     mainWindow.setResizable(false);
   } else {
     mainWindow.setAlwaysOnTop(false);
@@ -126,8 +131,10 @@ ipcMain.on('expand-window-for-menu', (event, expand) => {
 
   if (expand) {
     mainWindow.setBounds({ x: 0, y: 0, width: width, height: height });
+    mainWindow.setPosition(0, 0);
   } else {
     mainWindow.setBounds({ x: 0, y: 0, width: width, height: 54 });
+    mainWindow.setPosition(0, 0);
   }
 });
 
