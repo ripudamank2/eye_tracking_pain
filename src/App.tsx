@@ -85,7 +85,6 @@ export function App() {
   // Computed Base Position of Eyes
   const getEyeCenterCoordinates = (width: number, height: number) => {
     if (isCrying || isEyeBreakOpen) {
-      // Center eyes when crying or break modal is open
       return { x: width / 2, y: height / 2 - 160 };
     }
 
@@ -134,19 +133,20 @@ export function App() {
     return () => clearInterval(timer);
   }, [isEyeBreakOpen]);
 
-  // Notify Electron when Right-Click Menu or Modals open/close
+  // Expand Electron Window when menu, modals, or custom eye positions are active!
   useEffect(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const win = window as any;
     if (win.require) {
       try {
         const { ipcRenderer } = win.require('electron');
-        ipcRenderer.send('expand-window-for-menu', contextMenuState.isOpen || isGameOpen || isAnalyticsOpen || isSpritesOpen || isEyeBreakOpen || webcamActive);
+        const needsExpand = contextMenuState.isOpen || isGameOpen || isAnalyticsOpen || isSpritesOpen || isEyeBreakOpen || webcamActive || eyePreset !== 'top_center';
+        ipcRenderer.send('expand-window-for-menu', needsExpand);
       } catch {
         /* ignore */
       }
     }
-  }, [contextMenuState.isOpen, isGameOpen, isAnalyticsOpen, isSpritesOpen, isEyeBreakOpen, webcamActive]);
+  }, [contextMenuState.isOpen, isGameOpen, isAnalyticsOpen, isSpritesOpen, isEyeBreakOpen, webcamActive, eyePreset]);
 
   // Toggle OS Top Bar Widget Mode
   const toggleTopBarWidgetMode = () => {
