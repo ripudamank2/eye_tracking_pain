@@ -102,38 +102,38 @@ export const EyeBreakModal: React.FC<EyeBreakModalProps> = ({
   const formattedTime = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in zoom-in-95 duration-200 select-none">
-      <div className="bg-slate-900/95 border border-cyan-500/50 rounded-3xl p-8 max-w-md w-full text-center shadow-2xl relative overflow-hidden">
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-in fade-in zoom-in-95 duration-200 select-none">
+      <div className="bg-slate-900/95 border border-cyan-500/50 rounded-3xl p-5 sm:p-6 max-w-md w-full text-center shadow-2xl relative overflow-y-auto max-h-[90vh] my-auto scrollbar-none">
         {/* Background Radial Glow */}
-        <div className="absolute -top-24 -left-24 w-64 h-64 bg-cyan-500/20 rounded-full blur-3xl" />
-        <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-rose-500/20 rounded-full blur-3xl" />
+        <div className="absolute -top-24 -left-24 w-64 h-64 bg-cyan-500/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-rose-500/20 rounded-full blur-3xl pointer-events-none" />
 
         {/* Crying Eye Icon */}
-        <div className="relative mx-auto w-24 h-24 mb-4 flex items-center justify-center bg-slate-800/80 border border-slate-700 rounded-3xl shadow-xl">
-          <div className="text-5xl animate-bounce">😭</div>
-          <div className="absolute -bottom-2 px-3 py-0.5 bg-rose-500/30 text-rose-300 border border-rose-500/50 text-[10px] font-mono font-bold rounded-full">
+        <div className="relative mx-auto w-16 h-16 mb-3 flex items-center justify-center bg-slate-800/80 border border-slate-700 rounded-2xl shadow-xl">
+          <div className="text-3xl animate-bounce">😭</div>
+          <div className="absolute -bottom-2 px-2.5 py-0.5 bg-rose-500/30 text-rose-300 border border-rose-500/50 text-[9px] font-mono font-bold rounded-full">
             Tears Dripping!
           </div>
         </div>
 
-        <h2 className="text-2xl font-black text-slate-100 tracking-tight mb-2">
+        <h2 className="text-xl font-black text-slate-100 tracking-tight mb-1">
           Eye Strain Safety Lock!
         </h2>
-        <p className="text-xs text-slate-300 mb-5 leading-relaxed">
+        <p className="text-[11px] text-slate-300 mb-3 leading-relaxed">
           The eyes are crying! You have been looking at the screen for too long. Take a 2-minute break to relax your eyes.
         </p>
 
         {/* Lock Mode Chooser */}
-        <div className="bg-slate-950/80 border border-slate-800 p-1.5 rounded-2xl mb-5 grid grid-cols-2 gap-1 text-xs">
+        <div className="bg-slate-950/80 border border-slate-800 p-1 rounded-xl mb-3 grid grid-cols-2 gap-1 text-[11px]">
           <button
             onClick={() => setLockMode('virtual_app')}
-            className={`py-2 px-3 rounded-xl font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+            className={`py-1.5 px-2.5 rounded-lg font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
               lockMode === 'virtual_app'
                 ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
             }`}
           >
-            <MonitorCheck className="w-4 h-4" />
+            <MonitorCheck className="w-3.5 h-3.5" />
             <span>Virtual Auto-Unlock</span>
           </button>
 
@@ -142,26 +142,26 @@ export const EyeBreakModal: React.FC<EyeBreakModalProps> = ({
               setLockMode('native_os');
               lockOsScreen();
             }}
-            className={`py-2 px-3 rounded-xl font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+            className={`py-1.5 px-2.5 rounded-lg font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
               lockMode === 'native_os'
                 ? 'bg-rose-500 text-white shadow-md shadow-rose-500/20'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
             }`}
           >
-            <Lock className="w-4 h-4" />
+            <Lock className="w-3.5 h-3.5" />
             <span>Native OS Lock</span>
           </button>
         </div>
 
         {/* 2-Minute Countdown Timer Card */}
-        <div className="bg-slate-950/90 border border-slate-800 rounded-2xl p-4 mb-5 shadow-inner">
-          <span className="text-[10px] font-mono uppercase tracking-widest text-slate-400 block mb-1">
+        <div className="bg-slate-950/90 border border-slate-800 rounded-xl p-3 mb-3 shadow-inner">
+          <span className="text-[9px] font-mono uppercase tracking-widest text-slate-400 block mb-0.5">
             {lockMode === 'virtual_app' ? 'Auto-Unlocks In' : 'Eye Rest Break Timer'}
           </span>
-          <div className="text-4xl font-black font-mono bg-gradient-to-r from-cyan-400 via-sky-300 to-rose-400 bg-clip-text text-transparent">
+          <div className="text-3xl font-black font-mono bg-gradient-to-r from-cyan-400 via-sky-300 to-rose-400 bg-clip-text text-transparent">
             {formattedTime}
           </div>
-          <div className="w-full bg-slate-800 h-1.5 rounded-full mt-3 overflow-hidden border border-slate-700">
+          <div className="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden border border-slate-700">
             <div
               className="h-full bg-gradient-to-r from-cyan-400 to-rose-500 transition-all duration-1000"
               style={{ width: `${((breakDurationSeconds - timeLeft) / breakDurationSeconds) * 100}%` }}
@@ -170,12 +170,12 @@ export const EyeBreakModal: React.FC<EyeBreakModalProps> = ({
         </div>
 
         {/* Relaxation Instructions */}
-        <div className="space-y-2 text-left bg-slate-800/40 p-3.5 rounded-xl border border-slate-700/60 mb-5">
-          <div className="flex items-center gap-2 text-xs text-cyan-300 font-semibold">
-            <Sparkles className="w-4 h-4 text-cyan-400" />
+        <div className="space-y-1.5 text-left bg-slate-800/40 p-3 rounded-xl border border-slate-700/60 mb-3">
+          <div className="flex items-center gap-1.5 text-[11px] text-cyan-300 font-semibold">
+            <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
             <span>20-20-20 Rule Exercise:</span>
           </div>
-          <ul className="text-[11px] text-slate-300 space-y-1 list-disc list-inside font-mono">
+          <ul className="text-[10px] text-slate-300 space-y-0.5 list-disc list-inside font-mono">
             <li>Look at an object 20 feet (6m) away.</li>
             <li>Blink smoothly 10 times to rehydrate eyes.</li>
             <li>Roll your shoulders and relax your neck.</li>
@@ -191,9 +191,9 @@ export const EyeBreakModal: React.FC<EyeBreakModalProps> = ({
               }
               onUnlock();
             }}
-            className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs font-mono text-slate-300 hover:text-white flex items-center justify-center gap-2 transition-all cursor-pointer"
+            className="w-full py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs font-mono text-slate-300 hover:text-white flex items-center justify-center gap-2 transition-all cursor-pointer"
           >
-            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
             <span>I Rested My Eyes (Unlock Now)</span>
           </button>
         </div>
