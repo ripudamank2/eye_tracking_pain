@@ -1,5 +1,5 @@
 import React from 'react';
-import { Camera, Activity, Zap, Sparkles, Target, Gamepad2, Volume2, VolumeX, Sun, SlidersHorizontal, X, Mic } from 'lucide-react';
+import { Camera, Activity, Zap, Sparkles, Target, Gamepad2, Volume2, VolumeX, Sun, SlidersHorizontal, X, Mic, ShieldAlert } from 'lucide-react';
 import type { EyeTheme } from '../engine/EyeEngine';
 
 interface ContextMenuProps {
@@ -28,6 +28,7 @@ interface ContextMenuProps {
   setEyeCount: (count: number) => void;
   showFullNavbar: boolean;
   setShowFullNavbar: (val: boolean) => void;
+  triggerEyeBreak: () => void;
 }
 
 export const ContextMenu: React.FC<ContextMenuProps> = ({
@@ -56,6 +57,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   setEyeCount,
   showFullNavbar,
   setShowFullNavbar,
+  triggerEyeBreak,
 }) => {
   if (!isOpen) return null;
 
@@ -70,11 +72,11 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   ];
 
   const adjustedX = Math.min(x, window.innerWidth - 280);
-  const adjustedY = Math.min(y, window.innerHeight - 480);
+  const adjustedY = Math.min(y, window.innerHeight - 520);
 
   return (
     <>
-      {/* Invisible backdrop to dismiss menu on click outside */}
+      {/* Backdrop */}
       <div
         className="fixed inset-0 z-40 bg-transparent"
         onClick={onClose}
@@ -131,6 +133,20 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         {/* Primary Actions List */}
         <div className="space-y-1 mb-3">
           <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest block mb-1">Features</span>
+
+          <button
+            onClick={() => {
+              triggerEyeBreak();
+              onClose();
+            }}
+            className="w-full px-2.5 py-1.5 rounded-xl text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 hover:bg-rose-500/30 flex items-center justify-between transition-all cursor-pointer shadow-md shadow-rose-500/10"
+          >
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
+              <span>😭 Crying Eyes & Break Lock</span>
+            </div>
+            <span className="text-[10px] font-mono font-bold">TEST</span>
+          </button>
 
           <button
             onClick={() => {

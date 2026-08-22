@@ -45,6 +45,7 @@ Eye Tracker Studio turns your cursor and camera into a high-performance 60 FPS i
 
 ### 2. 💖 Cute Eye Behaviors & Dynamic Expressions
 - **Organic Eyelids & Automatic Blinking:** Natural periodic blinking cycle (2.5s–4.8s) with realistic Bezier curved eyelids and eyelash contours.
+- **😭 Crying Eyes & Eye Strain Safety Lock Screen:** When staring at the screen for too long, the eyes get glossy and stream animated tear drops down the screen, triggering an AI voice warning (*"You've been staring at the screen for too long! Please take an eye break now!"*) and locking interaction with a 2-minute relaxation countdown timer!
 - **Double Blinks & Playful Expressions:** Occasional double-blinks and wink responses on fast cursor movements or mouse clicks.
 - **Expressive States:**
   - **Sleepy Idle Mode:** Eyes droop gently when no motion is detected for >25 seconds.
@@ -69,7 +70,7 @@ Eye Tracker Studio turns your cursor and camera into a high-performance 60 FPS i
 - 💡 **Presenter Spotlight Mode:** Darkens the rest of your display while focusing a bright spotlight around your active cursor area.
 - ✨ **Particle FX & Trails:** Glowing cursor particle trails with custom sprite shapes (Stars, Hearts, Bubbles, Neon Dust).
 - 🔊 **Web Audio Synthesizer:** Real-time procedural audio pop, laser beam, and power-up sound effects.
-- 🎙️ **AI Voice Command Recognition:** Voice-control themes and features (say `"laser"`, `"cyberpunk"`, `"game"`, `"trail"`).
+- 🎙️ **AI Voice Command Recognition:** Voice-control themes and features (say `"laser"`, `"cyberpunk"`, `"game"`, `"trail"`, `"break"`).
 - 📊 **Odometer Analytics:** Tracks distance traveled in meters, total clicks, and real-time mouse speed.
 - 🎯 **Gaze Target Shooter Mini-Game:** Built-in interactive target popping game to test your gaze and cursor speed!
 
@@ -82,6 +83,7 @@ Eye Tracker Studio turns your cursor and camera into a high-performance 60 FPS i
 - [ ] **AI Reading Assistant:** Highlights and defines complex terms as your gaze scans text.
 
 ### 💖 Cute Emotion & Expression Engine
+- [x] **😭 Crying Eyes & Eye Strain Safety Lock:** Eyes stream animated tear drops, trigger AI speech alert, and lock screen for 2-minute eye rest.
 - [ ] **Happy / Smiling Eyes (`^ ^`):** Eyes squint into cute curved arcs when clicking or moving in circles.
 - [ ] **Love / Heart Pupil Mode (`💖`):** Pupils morph into glowing pulsing hearts on double-click or webcam eye contact.
 - [ ] **Animated Eyebrows:** Expressive mini eyebrows for surprised, focused, and sleepy moods.

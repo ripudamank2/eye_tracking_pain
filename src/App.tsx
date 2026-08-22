@@ -4,6 +4,7 @@ import { ContextMenu } from './components/ContextMenu';
 import { AnalyticsModal } from './components/AnalyticsModal';
 import { GazeGameModal } from './components/GazeGameModal';
 import { CustomSpriteModal } from './components/CustomSpriteModal';
+import { EyeBreakModal } from './components/EyeBreakModal';
 import { WebcamPreview } from './components/WebcamPreview';
 import { EyeEngine } from './engine/EyeEngine';
 import type { EyeTheme } from './engine/EyeEngine';
@@ -43,6 +44,9 @@ export function App() {
   const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
   const [isGameOpen, setIsGameOpen] = useState(false);
   const [isSpritesOpen, setIsSpritesOpen] = useState(false);
+  const [isEyeBreakOpen, setIsEyeBreakOpen] = useState(false);
+  const [isCrying, setIsCrying] = useState(false);
+
   const [voiceListening, setVoiceListening] = useState(false);
   const [liveTranscript, setLiveTranscript] = useState('');
   const [micVolume, setMicVolume] = useState(0);
@@ -70,26 +74,31 @@ export function App() {
   const clickBurstRef = useRef(0);
   const isWinkingRef = useRef(false);
 
-  // Notify Electron when Right-Click Menu opens/closes to resize window bounds
+  // Trigger Eye Break Test
+  const triggerEyeBreak = () => {
+    setIsCrying(true);
+    setIsEyeBreakOpen(true);
+  };
+
+  // Notify Electron when Right-Click Menu or Modals open/close
   useEffect(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const win = window as any;
     if (win.require) {
       try {
         const { ipcRenderer } = win.require('electron');
-        ipcRenderer.send('expand-window-for-menu', contextMenuState.isOpen || isGameOpen || isAnalyticsOpen || isSpritesOpen || webcamActive);
+        ipcRenderer.send('expand-window-for-menu', contextMenuState.isOpen || isGameOpen || isAnalyticsOpen || isSpritesOpen || isEyeBreakOpen || webcamActive);
       } catch {
         /* ignore */
       }
     }
-  }, [contextMenuState.isOpen, isGameOpen, isAnalyticsOpen, isSpritesOpen, webcamActive]);
+  }, [contextMenuState.isOpen, isGameOpen, isAnalyticsOpen, isSpritesOpen, isEyeBreakOpen, webcamActive]);
 
   // Toggle OS Top Bar Widget Mode
   const toggleTopBarWidgetMode = () => {
     const nextState = !topBarWidgetMode;
     setTopBarWidgetMode(nextState);
 
-    // Send IPC to Electron if running inside Electron
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const win = window as any;
     if (win.require) {
@@ -121,8 +130,10 @@ export function App() {
     else if (cmd === 'robot') setTheme('robot');
     else if (cmd === 'googly') setTheme('googly');
     else if (cmd === 'pixel') setTheme('pixel');
+    else if (cmd === 'cute') setTheme('cute');
     else if (cmd === 'game') setIsGameOpen(true);
     else if (cmd === 'analytics') setIsAnalyticsOpen(true);
+    else if (cmd === 'break') triggerEyeBreak();
   };
 
   // Initialize Voice Controller
@@ -218,7 +229,7 @@ export function App() {
         particleEngineRef.current.drawTrail(ctx);
       }
 
-      // Draw Eyes Centered at Top of Screen (Clean Top Panel View like gnome eye-on-cursor)
+      // Draw Eyes Centered at Top of Screen
       const radius = topBarWidgetMode ? 14 : 32;
       const spacing = topBarWidgetMode ? 36 : 80;
       const startX = canvas.width / 2 - ((eyeCount - 1) * spacing) / 2;
@@ -236,6 +247,7 @@ export function App() {
           velocity: speed,
           clickBurstCount: clickBurstRef.current,
           isWinking: isWinkingRef.current,
+          isCrying,
         },
         dt
       );
@@ -253,6 +265,7 @@ export function App() {
           velocity: speed,
           clickBurstCount: clickBurstRef.current,
           isWinking: isWinkingRef.current,
+          isCrying,
         });
       }
 
@@ -274,7 +287,7 @@ export function App() {
       window.removeEventListener('resize', handleResize);
       cancelAnimationFrame(animationFrameId);
     };
-  }, [theme, webcamActive, laserMode, trailMode, particlesMode, showHeatmap, spotlightMode, eyeCount, topBarWidgetMode]);
+  }, [theme, webcamActive, laserMode, trailMode, particlesMode, showHeatmap, spotlightMode, eyeCount, topBarWidgetMode, isCrying]);
 
   // Event Listeners for Mouse Motion & Clicks
   useEffect(() => {
@@ -354,7 +367,7 @@ export function App() {
 
   return (
     <div className="relative w-screen h-screen bg-transparent text-slate-100 overflow-hidden select-none">
-      {/* Optional Top Navbar (Toggled via Right-Click menu) */}
+      {/* Optional Top Navbar */}
       {showFullNavbar && (
         <Navbar
           currentTheme={theme}
@@ -411,11 +424,11 @@ export function App() {
             </div>
           </div>
           <span className="text-xs font-mono font-bold text-slate-200">
-            {liveTranscript || 'Listening... Say a command below:'}
+            {liveTranscript || 'Listening... Say "break", "cute", "laser", "game":'}
           </span>
           <div className="h-4 w-px bg-slate-800" />
           <div className="flex items-center gap-1">
-            {['cyberpunk', 'cat', 'robot', 'laser', 'game'].map((cmd) => (
+            {['break', 'cute', 'laser', 'game'].map((cmd) => (
               <button
                 key={cmd}
                 onClick={() => handleVoiceCommand(cmd)}
@@ -458,6 +471,16 @@ export function App() {
         setEyeCount={setEyeCount}
         showFullNavbar={showFullNavbar}
         setShowFullNavbar={setShowFullNavbar}
+        triggerEyeBreak={triggerEyeBreak}
+      />
+
+      {/* Eye Rest Break Safety Lock Modal */}
+      <EyeBreakModal
+        isOpen={isEyeBreakOpen}
+        onUnlock={() => {
+          setIsEyeBreakOpen(false);
+          setIsCrying(false);
+        }}
       />
 
       {/* Analytics Modal */}
