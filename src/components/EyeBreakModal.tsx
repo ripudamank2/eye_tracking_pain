@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Sparkles, CheckCircle2, Lock, MonitorCheck } from 'lucide-react';
 
 export type LockModeOption = 'virtual_app' | 'native_os';
@@ -16,6 +16,7 @@ export const EyeBreakModal: React.FC<EyeBreakModalProps> = ({
 }) => {
   const [timeLeft, setTimeLeft] = useState(breakDurationSeconds);
   const [lockMode, setLockMode] = useState<LockModeOption>('virtual_app');
+  const hasSpokenRef = useRef(false);
 
   const lockOsScreen = () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -30,32 +31,40 @@ export const EyeBreakModal: React.FC<EyeBreakModalProps> = ({
     }
   };
 
+  // Speech Alert Effect: Runs EXACTLY ONCE per open session
   useEffect(() => {
+    if (isOpen && !hasSpokenRef.current) {
+      hasSpokenRef.current = true;
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel(); // Stop any pending speech
+        const msg = new SpeechSynthesisUtterance("You've been staring at the screen for too long! Please take an eye break now.");
+        msg.rate = 1.0;
+        window.speechSynthesis.speak(msg);
+      }
+    }
+
     if (!isOpen) {
-      setTimeLeft(breakDurationSeconds);
+      hasSpokenRef.current = false;
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
       }
+    }
+  }, [isOpen]);
+
+  // Countdown Timer & OS Lock Effect
+  useEffect(() => {
+    if (!isOpen) {
+      setTimeLeft(breakDurationSeconds);
       return;
-    }
-
-    // Play Voice Warning Alert ONCE when modal opens
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const msg = new SpeechSynthesisUtterance("You've been staring at the screen for too long! Please take an eye break now.");
-      msg.rate = 1.0;
-      window.speechSynthesis.speak(msg);
-    }
-
-    // If native OS lock mode selected, lock workstation
-    if (lockMode === 'native_os') {
-      lockOsScreen();
     }
 
     const interval = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(interval);
+          if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+          }
           onUnlock();
           return 0;
         }
@@ -63,13 +72,8 @@ export const EyeBreakModal: React.FC<EyeBreakModalProps> = ({
       });
     }, 1000);
 
-    return () => {
-      clearInterval(interval);
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
-    };
-  }, [isOpen, breakDurationSeconds, lockMode, onUnlock]);
+    return () => clearInterval(interval);
+  }, [isOpen, breakDurationSeconds, onUnlock]);
 
   if (!isOpen) return null;
 
