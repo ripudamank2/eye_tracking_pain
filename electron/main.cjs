@@ -8,6 +8,7 @@ app.commandLine.appendSwitch('enable-transparent-visuals');
 app.commandLine.appendSwitch('disable-gpu-sandbox');
 app.commandLine.appendSwitch('ignore-gpu-blocklist');
 app.commandLine.appendSwitch('force_high_performance_gpu');
+app.commandLine.appendSwitch('ozone-platform-hint', 'x11');
 
 let mainWindow = null;
 let tray = null;
