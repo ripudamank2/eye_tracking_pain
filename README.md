@@ -75,30 +75,27 @@ Eye Tracker Studio turns your cursor and camera into a high-performance 60 FPS i
 
 ---
 
-## 🔮 Upcoming Feature Roadmap
+## 🤖 Futuristic AI Features Roadmap
 
-### 💖 Cute Emotion Engine
-- [ ] **Happy / Smiling Eyes (`^ ^`):** Eyes squint into cute curved arcs when clicking or drawing circles.
-- [ ] **Love / Heart Pupil Mode (`💖`):** Pupils morph into glowing pulsing hearts on double-click.
-- [ ] **Animated Eyebrows:** Expressive mini eyebrows for surprised, focused, and sleepy moods.
-- [ ] **Gaze Eye-Contact Reaction:** Eyes blush and smile back when AI camera detects direct eye contact!
+### 🤖 Multimodal Vision AI ("What Are You Looking At?")
+- [ ] **AI Gaze Scene Explainer:** Hold your gaze on any code block, image, or chart on screen to get an instant AI vision summary!
+- [ ] **AI Reading Assistant:** Highlights and defines complex terms as your gaze scans text.
 
-### 🎨 Additional Eye Themes
-- [ ] **Anime Heart Eyes:** Pulsing pink heart pupils with star catchlights.
-- [ ] **Dragon / Reptile Eyes:** Glowing golden scales with dynamic pupil slits.
-- [ ] **Cosmic Galaxy Eyes:** Rotating spiral galaxy iris with floating stardust.
-- [ ] **Matrix Code Rain Eyes:** Falling green matrix numbers inside the pupil.
-- [ ] **Fiery Flame Eyes:** Animated flickering flame aura around the iris.
+### 🧠 Emotion AI & Mood Synchronization
+- [ ] **AI Mood & Facial Expression Sync:** Real-time facial sentiment analysis via webcam so the eyes mirror your exact mood (Happy, Surprised, Confused, Focused, Tired).
+- [ ] **AI Drowsiness & Yawn Safety Guard:** Detects eye strain, frequent blinks, or yawns to suggest 20-second eye relaxation breaks.
 
-### 🎯 Presentation & Productivity Tools
-- [ ] **Gaze Dwell-Click:** Hands-free auto-click when holding gaze on a target for 1.5 seconds.
-- [ ] **Reading Ruler:** Highlighted focus line under the text line your gaze is reading.
-- [ ] **20-20-20 Eye Rest Reminder:** Cute eye-closing animation every 20 minutes to prevent eye strain.
+### 🎯 AI Intent Pointer & Smart Gestures
+- [ ] **AI Target Snap-to-Button:** Predicts intended click targets from gaze trajectories and snaps the reticle smoothly to buttons.
+- [ ] **AI Camera Gestures:**
+  - **Head Nod:** Confirm / Select
+  - **Head Shake:** Cancel / Back
+  - **Smile:** Trigger heart burst particles!
+  - **Left Wink:** Left-click | **Right Wink:** Right-click
 
-### 🎮 Gaze Mini-Games
-- [ ] **Gaze Pong:** Play Pong against the computer using only your gaze or cursor movement!
-- [ ] **Blink Speed Test:** Interactive challenge testing your blink reaction speed via webcam.
-- [ ] **Gaze Maze Runner:** Guide a ball through a maze using eye tracking without touching boundaries.
+### 🗣️ AI Voice & Audio Companion
+- [ ] **Interactive AI Voice Personality:** Give the animated eyes a voice assistant persona that speaks back when you command them!
+- [ ] **Adaptive Generative Audio:** Background ambient music tempo adapts to your mouse speed and focus state.
 
 ---
 
