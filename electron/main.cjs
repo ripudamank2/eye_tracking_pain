@@ -139,6 +139,13 @@ ipcMain.on('expand-window-for-menu', (event, expand) => {
   }
 });
 
+// IPC Listener to Pass Mouse Events through Transparent Window to OS Desktop
+ipcMain.on('set-ignore-mouse-events', (event, ignore, options) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return;
+  win.setIgnoreMouseEvents(ignore, options || { forward: true });
+});
+
 // IPC Listener to Lock OS Desktop Workstation Screen
 ipcMain.on('lock-os-screen', () => {
   lockOsScreen();

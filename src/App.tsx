@@ -340,7 +340,7 @@ export function App() {
     };
   }, [theme, webcamActive, laserMode, trailMode, particlesMode, showHeatmap, spotlightMode, eyeCount, topBarWidgetMode, isCrying, eyePreset, customEyePos]);
 
-  // Event Listeners for Mouse Motion, Direct Eye Dragging & Clicks
+  // Event Listeners for Mouse Motion, Passthrough & Direct Eye Dragging
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       mousePosRef.current = { x: e.clientX, y: e.clientY };
@@ -348,6 +348,32 @@ export function App() {
       if (isDraggingEyesRef.current) {
         setEyePreset('custom');
         setCustomEyePos({ x: e.clientX, y: e.clientY });
+      }
+
+      // Detect if hovering over interactive UI (eyes, context menu, modals) vs transparent space
+      const centerPos = getEyeCenterCoordinates(window.innerWidth, window.innerHeight);
+      const distToEyes = Math.hypot(e.clientX - centerPos.x, e.clientY - centerPos.y);
+      const targetEl = e.target as HTMLElement | null;
+      const isOverInteractiveUI =
+        distToEyes < 60 ||
+        contextMenuState.isOpen ||
+        isGameOpen ||
+        isAnalyticsOpen ||
+        isSpritesOpen ||
+        isEyeBreakOpen ||
+        showFullNavbar ||
+        Boolean(targetEl && targetEl.closest('button, input, a, .context-menu-container'));
+
+      // Forward mouse events to underlying desktop windows when over transparent canvas!
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const win = window as any;
+      if (win.require) {
+        try {
+          const { ipcRenderer } = win.require('electron');
+          ipcRenderer.send('set-ignore-mouse-events', !isOverInteractiveUI, { forward: true });
+        } catch {
+          /* ignore */
+        }
       }
     };
 
@@ -422,7 +448,7 @@ export function App() {
       window.removeEventListener('mouseup', handleMouseUp);
       window.removeEventListener('contextmenu', handleContextMenu);
     };
-  }, [particlesMode, laserMode, eyePreset, customEyePos, isCrying, isEyeBreakOpen, topBarWidgetMode]);
+  }, [particlesMode, laserMode, eyePreset, customEyePos, isCrying, isEyeBreakOpen, topBarWidgetMode, contextMenuState.isOpen, isGameOpen, isAnalyticsOpen, isSpritesOpen, showFullNavbar]);
 
   const toggleWebcam = async () => {
     if (webcamActive) {
