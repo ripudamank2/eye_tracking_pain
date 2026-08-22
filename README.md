@@ -34,7 +34,7 @@ Eye Tracker Studio turns your cursor and camera into a high-performance 60 FPS i
 
 ---
 
-## 🚀 4 Core Improvement Areas
+## 🚀 Active Feature Modules
 
 ### 1. 🎯 AI Webcam Iris Accuracy & Blink Detection
 - **MediaPipe 468-Point Face Mesh:** Real-time sub-millimeter iris coordinate tracking via local webcam.
@@ -61,7 +61,6 @@ Eye Tracker Studio turns your cursor and camera into a high-performance 60 FPS i
 - 👀 **Googly:** Spring-damper physics simulation for bouncy wobbly googly eyes.
 - 👾 **Pixel:** 8-bit retro arcade pixelated eye blocks.
 - 🤖 **Robot:** Metallic dark bezel with glowing red LED core.
-- *(Upcoming Roadmap: Heart Eyes, Dragon Eyes, Matrix Glow).*
 
 ---
 
@@ -73,6 +72,33 @@ Eye Tracker Studio turns your cursor and camera into a high-performance 60 FPS i
 - 🎙️ **AI Voice Command Recognition:** Voice-control themes and features (say `"laser"`, `"cyberpunk"`, `"game"`, `"trail"`).
 - 📊 **Odometer Analytics:** Tracks distance traveled in meters, total clicks, and real-time mouse speed.
 - 🎯 **Gaze Target Shooter Mini-Game:** Built-in interactive target popping game to test your gaze and cursor speed!
+
+---
+
+## 🔮 Upcoming Feature Roadmap
+
+### 💖 Cute Emotion Engine
+- [ ] **Happy / Smiling Eyes (`^ ^`):** Eyes squint into cute curved arcs when clicking or drawing circles.
+- [ ] **Love / Heart Pupil Mode (`💖`):** Pupils morph into glowing pulsing hearts on double-click.
+- [ ] **Animated Eyebrows:** Expressive mini eyebrows for surprised, focused, and sleepy moods.
+- [ ] **Gaze Eye-Contact Reaction:** Eyes blush and smile back when AI camera detects direct eye contact!
+
+### 🎨 Additional Eye Themes
+- [ ] **Anime Heart Eyes:** Pulsing pink heart pupils with star catchlights.
+- [ ] **Dragon / Reptile Eyes:** Glowing golden scales with dynamic pupil slits.
+- [ ] **Cosmic Galaxy Eyes:** Rotating spiral galaxy iris with floating stardust.
+- [ ] **Matrix Code Rain Eyes:** Falling green matrix numbers inside the pupil.
+- [ ] **Fiery Flame Eyes:** Animated flickering flame aura around the iris.
+
+### 🎯 Presentation & Productivity Tools
+- [ ] **Gaze Dwell-Click:** Hands-free auto-click when holding gaze on a target for 1.5 seconds.
+- [ ] **Reading Ruler:** Highlighted focus line under the text line your gaze is reading.
+- [ ] **20-20-20 Eye Rest Reminder:** Cute eye-closing animation every 20 minutes to prevent eye strain.
+
+### 🎮 Gaze Mini-Games
+- [ ] **Gaze Pong:** Play Pong against the computer using only your gaze or cursor movement!
+- [ ] **Blink Speed Test:** Interactive challenge testing your blink reaction speed via webcam.
+- [ ] **Gaze Maze Runner:** Guide a ball through a maze using eye tracking without touching boundaries.
 
 ---
 
