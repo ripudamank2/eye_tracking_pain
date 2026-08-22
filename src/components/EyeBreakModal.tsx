@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Sparkles, CheckCircle2, Lock } from 'lucide-react';
+import { Sparkles, CheckCircle2, Lock, MonitorCheck } from 'lucide-react';
+
+export type LockModeOption = 'virtual_app' | 'native_os';
 
 interface EyeBreakModalProps {
   isOpen: boolean;
@@ -13,6 +15,7 @@ export const EyeBreakModal: React.FC<EyeBreakModalProps> = ({
   breakDurationSeconds = 120, // 2-minute eye rest break by default
 }) => {
   const [timeLeft, setTimeLeft] = useState(breakDurationSeconds);
+  const [lockMode, setLockMode] = useState<LockModeOption>('virtual_app');
 
   const lockOsScreen = () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -44,6 +47,11 @@ export const EyeBreakModal: React.FC<EyeBreakModalProps> = ({
       window.speechSynthesis.speak(msg);
     }
 
+    // If native OS lock mode selected, lock workstation
+    if (lockMode === 'native_os') {
+      lockOsScreen();
+    }
+
     const interval = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
@@ -61,7 +69,7 @@ export const EyeBreakModal: React.FC<EyeBreakModalProps> = ({
         window.speechSynthesis.cancel();
       }
     };
-  }, [isOpen, breakDurationSeconds, onUnlock]);
+  }, [isOpen, breakDurationSeconds, lockMode, onUnlock]);
 
   if (!isOpen) return null;
 
@@ -72,29 +80,59 @@ export const EyeBreakModal: React.FC<EyeBreakModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-2xl flex items-center justify-center p-4 animate-in fade-in zoom-in-95 duration-200 select-none">
       <div className="bg-slate-900/95 border border-cyan-500/50 rounded-3xl p-8 max-w-md w-full text-center shadow-2xl relative overflow-hidden">
-        {/* Glowing Background Radial Beam */}
+        {/* Background Radial Glow */}
         <div className="absolute -top-24 -left-24 w-64 h-64 bg-cyan-500/20 rounded-full blur-3xl" />
         <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-rose-500/20 rounded-full blur-3xl" />
 
-        {/* Animated Crying Eye Icon */}
+        {/* Crying Eye Icon */}
         <div className="relative mx-auto w-24 h-24 mb-4 flex items-center justify-center bg-slate-800/80 border border-slate-700 rounded-3xl shadow-xl">
           <div className="text-5xl animate-bounce">😭</div>
           <div className="absolute -bottom-2 px-3 py-0.5 bg-rose-500/30 text-rose-300 border border-rose-500/50 text-[10px] font-mono font-bold rounded-full">
-            Tears Drip!
+            Tears Dripping!
           </div>
         </div>
 
         <h2 className="text-2xl font-black text-slate-100 tracking-tight mb-2">
           Eye Strain Safety Lock!
         </h2>
-        <p className="text-xs text-slate-300 mb-6 leading-relaxed">
-          The eyes are crying! You have been looking at the screen for too long. Take a 2-minute break to relax your eyes (look 20 feet away).
+        <p className="text-xs text-slate-300 mb-5 leading-relaxed">
+          The eyes are crying! You have been looking at the screen for too long. Take a 2-minute break to relax your eyes.
         </p>
 
+        {/* Lock Mode Chooser */}
+        <div className="bg-slate-950/80 border border-slate-800 p-1.5 rounded-2xl mb-5 grid grid-cols-2 gap-1 text-xs">
+          <button
+            onClick={() => setLockMode('virtual_app')}
+            className={`py-2 px-3 rounded-xl font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+              lockMode === 'virtual_app'
+                ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+            }`}
+          >
+            <MonitorCheck className="w-4 h-4" />
+            <span>Virtual Auto-Unlock</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setLockMode('native_os');
+              lockOsScreen();
+            }}
+            className={`py-2 px-3 rounded-xl font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+              lockMode === 'native_os'
+                ? 'bg-rose-500 text-white shadow-md shadow-rose-500/20'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+            }`}
+          >
+            <Lock className="w-4 h-4" />
+            <span>Native OS Lock</span>
+          </button>
+        </div>
+
         {/* 2-Minute Countdown Timer Card */}
-        <div className="bg-slate-950/90 border border-slate-800 rounded-2xl p-4 mb-6 shadow-inner">
+        <div className="bg-slate-950/90 border border-slate-800 rounded-2xl p-4 mb-5 shadow-inner">
           <span className="text-[10px] font-mono uppercase tracking-widest text-slate-400 block mb-1">
-            Screen Auto-Unlocks In
+            {lockMode === 'virtual_app' ? 'Auto-Unlocks In' : 'Eye Rest Break Timer'}
           </span>
           <div className="text-4xl font-black font-mono bg-gradient-to-r from-cyan-400 via-sky-300 to-rose-400 bg-clip-text text-transparent">
             {formattedTime}
@@ -108,7 +146,7 @@ export const EyeBreakModal: React.FC<EyeBreakModalProps> = ({
         </div>
 
         {/* Relaxation Instructions */}
-        <div className="space-y-2 text-left bg-slate-800/40 p-3.5 rounded-xl border border-slate-700/60 mb-6">
+        <div className="space-y-2 text-left bg-slate-800/40 p-3.5 rounded-xl border border-slate-700/60 mb-5">
           <div className="flex items-center gap-2 text-xs text-cyan-300 font-semibold">
             <Sparkles className="w-4 h-4 text-cyan-400" />
             <span>20-20-20 Rule Exercise:</span>
@@ -123,24 +161,16 @@ export const EyeBreakModal: React.FC<EyeBreakModalProps> = ({
         {/* Action Buttons */}
         <div className="space-y-2">
           <button
-            onClick={lockOsScreen}
-            className="w-full py-2.5 bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 rounded-xl text-xs font-mono font-bold text-rose-300 flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md shadow-rose-500/10"
-          >
-            <Lock className="w-4 h-4 text-rose-400" />
-            <span>Lock OS Desktop Workstation Now</span>
-          </button>
-
-          <button
             onClick={() => {
               if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel();
               }
               onUnlock();
             }}
-            className="w-full py-2 bg-slate-800/80 hover:bg-slate-700 border border-slate-700 rounded-xl text-[11px] font-mono text-slate-400 hover:text-white flex items-center justify-center gap-2 transition-all cursor-pointer"
+            className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs font-mono text-slate-300 hover:text-white flex items-center justify-center gap-2 transition-all cursor-pointer"
           >
             <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-            <span>I Rested My Eyes (Early Unlock)</span>
+            <span>I Rested My Eyes (Unlock Now)</span>
           </button>
         </div>
       </div>
