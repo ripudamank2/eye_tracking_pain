@@ -75,33 +75,52 @@ Eye Tracker Studio turns your cursor and camera into a high-performance 60 FPS i
 
 ---
 
-## 🔮 The 10-Step Next-Gen AI Paradigm Roadmap
+## 🔮 Complete 10-Step Master Feature & AI Roadmap
 
-### Step 1: 🧠 Cognitive Pupillometry & Attention Analysis
+### Step 1: 💖 Cute Emotion Engine & Dynamic Expressions
+- [ ] **Happy / Smiling Eyes (`^ ^`):** Eyes squint into cute curved arcs when clicking or moving in circles.
+- [ ] **Love / Heart Pupil Mode (`💖`):** Pupils morph into glowing pulsing hearts on double-click or webcam eye contact.
+- [ ] **Animated Eyebrows:** Expressive mini eyebrows for surprised, focused, and sleepy moods.
+- [ ] **Gaze Eye-Contact Reaction:** Eyes blush and smile back when AI camera detects direct eye contact!
+
+### Step 2: 🎨 Additional Creative Eye Themes
+- [ ] **Anime Heart Eyes:** Pulsing pink heart pupils with star catchlights.
+- [ ] **Dragon / Reptile Eyes:** Glowing golden scales with dynamic pupil slits.
+- [ ] **Cosmic Galaxy Eyes:** Rotating spiral galaxy iris with floating stardust.
+- [ ] **Matrix Code Rain Eyes:** Falling green matrix numbers inside the pupil.
+- [ ] **Fiery Flame Eyes:** Animated flickering flame aura around the iris.
+
+### Step 3: 🧠 Subconscious Pupillometry & Attention Analysis
 - [ ] **Task-Evoked Pupil Dilations:** Measures cognitive load & micro-frustration in real-time to adjust UI legibility.
 - [ ] **Foveal Speed Reading Mode:** Stream 1,000 WPM text directly into your gaze focus zone.
 
-### Step 2: ⚡ Micro-Saccade Telepathy (Zero-Latency Intent)
+### Step 4: ⚡ Micro-Saccade Telepathy (Zero-Latency Intent Pointer)
 - [ ] **Predictive Target Trajectory:** Detects 10ms micro-saccades before hand movement to snap cursor pre-emptively.
+- [ ] **Gaze Dwell-Click:** Hands-free auto-click when holding gaze on a target for 1.5 seconds.
 
-### Step 3: 🎭 Living AI Digital Companion (Autonomous Soul Engine)
+### Step 5: 🎭 Living AI Digital Companion (Autonomous Soul Engine)
 - [ ] **Autonomous Behavior States:** Eyes explore screen, inspect open windows, and chase particles independently when idle.
 - [ ] **Multimodal "Look & Command":** Look at *any* screen region and say *"Explain"*, *"Translate"*, or *"Summarize"*.
 
-### Step 4: 🛡️ Continuous Biometric Iris Guard & Privacy Shield
+### Step 6: 🛡️ Continuous Biometric Iris Guard & Privacy Shield
 - [ ] **Passive Eye-Reflection Security:** Continuous ocular reflection authentication; instant screen lock if looking away.
 - [ ] **Peeping Guard:** Automatically blurs sensitive windows when an unknown face walks behind you.
 
-### Step 5: 🌐 Spatial 3D Lighting & Multi-Monitor Teleportation
+### Step 7: 🌐 Spatial 3D Lighting & Multi-Monitor Companion
 - [ ] **Webcam Ambient Relighting:** Eyes cast dynamic 3D shadows matching room lighting & desktop window colors.
 - [ ] **Multi-Display Seamless Jump:** Eyes teleport smoothly across multi-monitor setups.
 
-### Step 6: 🎥 Twitch / YouTube Streamer Overlay Suite
+### Step 8: 🎥 Twitch / YouTube Streamer Overlay Suite
 - [ ] **Live Gaze Heatmap Broadcast:** Overlay real-time gaze targeting on live game streams.
 - [ ] **Twitch Chat Emoji Reaction System:** Eyes react dynamically to live chat emotes (`Pog`, `LUL`, `❤️`).
 
-### Step 7: 🎨 Generative Prompt-to-Theme Engine
+### Step 9: 🎯 Presentation, Health & Productivity Tools
+- [ ] **Reading Ruler:** Highlighted focus line under the text line your gaze is reading.
+- [ ] **20-20-20 Eye Rest Reminder:** Cute eye-closing animation every 20 minutes to prevent eye strain.
+
+### Step 10: 🎨 Generative Prompt-to-Theme Engine & Mini-Games
 - [ ] **Text-to-Eye Theme Generation:** Type any prompt (*"Vaporwave Sunset"*, *"Cyber Dragon"*) to generate procedural themes.
+- [ ] **Gaze Pong & Blink Speed Test:** Interactive mini-games testing gaze speed and blink reaction time.
 
 ---
 
@@ -120,6 +139,19 @@ npm run dev
 ```
 
 Open `http://localhost:5173/` in your browser.
+
+---
+
+## ⌨️ Desktop Controls & Interactions
+
+| Interaction | Action |
+| :--- | :--- |
+| **Mouse Move / Webcam Gaze** | Eyes follow target with spring physics |
+| **Right-Click Anywhere** | Open Floating Studio Controls Context Menu |
+| **Left Click** | Trigger click burst particles & sound FX |
+| **Rapid Clicks** | Dilate pupils (Surprised state) |
+| **Fast Mouse Flick** | Dizzy pupil spin animation |
+| **Idle (>25s)** | Sleepy eyelids droop |
 
 ---
 
