@@ -1,0 +1,69 @@
+{
+  "name": "eye-tracker-studio",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Cross-platform 60 FPS AI Gaze Tracking Studio with MediaPipe & Custom Sprites",
+  "author": "VoltAI Team <developer@voltai.ai>",
+  "homepage": "https://voltai.ai",
+  "type": "module",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview",
+    "electron:dev": "vite",
+    "dist": "npm run build && electron-builder --dir",
+    "dist:linux": "npm run build && electron-builder --linux AppImage deb",
+    "dist:appimage": "npm run build && electron-builder --linux AppImage",
+    "dist:win": "npm run build && electron-builder --win nsis",
+    "dist:mac": "npm run build && electron-builder --mac dmg"
+  },
+  "build": {
+    "appId": "com.eyetracker.studio",
+    "productName": "Eye Tracker Studio",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "maintainer": "VoltAI Team <developer@voltai.ai>",
+      "category": "Utility"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg"
+    }
+  },
+  "dependencies": {
+    "@mediapipe/camera_utils": "^0.3.1675466862",
+    "@mediapipe/face_mesh": "^0.4.1633559619",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/canvas-confetti": "^1.9.0",
+    "canvas-confetti": "^1.9.4",
+    "lucide-react": "^1.33.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "tailwindcss": "^4.3.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.4",
+    "electron": "^34.2.0",
+    "electron-builder": "^25.1.8",
+    "oxlint": "^1.75.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.2.0"
+  }
+}

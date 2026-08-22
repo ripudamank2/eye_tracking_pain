@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    @apply bg-slate-950 text-slate-100 font-sans antialiased selection:bg-cyan-500 selection:text-black overflow-x-hidden min-h-screen;
+  }
+}
+
+/* Custom glowing & neon effects */
+.glow-cyan {
+  box-shadow: 0 0 20px rgba(6, 182, 212, 0.4);
+}
+
+.glow-magenta {
+  box-shadow: 0 0 20px rgba(236, 72, 153, 0.4);
+}
+
+.bg-grid-pattern {
+  background-size: 30px 30px;
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+}
