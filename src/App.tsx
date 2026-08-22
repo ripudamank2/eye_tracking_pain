@@ -66,19 +66,41 @@ export function App() {
   const audioSynthRef = useRef(new AudioSynth());
   const voiceControllerRef = useRef<VoiceController | null>(null);
 
-  // Input State Refs
+  // Input State & Screen Time Timers
   const mousePosRef = useRef({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
   const lastMousePosRef = useRef({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
   const lastTimeRef = useRef(performance.now());
   const lastMotionTimeRef = useRef(performance.now());
+  const continuousActiveSecondsRef = useRef(0);
   const clickBurstRef = useRef(0);
   const isWinkingRef = useRef(false);
 
-  // Trigger Eye Break Test
+  // Trigger Eye Break
   const triggerEyeBreak = () => {
     setIsCrying(true);
     setIsEyeBreakOpen(true);
+    continuousActiveSecondsRef.current = 0;
   };
+
+  // Continuous Active Screen Time Tracking (Triggers break after 20 mins of non-stop active use)
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const timeSinceLastMotion = performance.now() - lastMotionTimeRef.current;
+      if (timeSinceLastMotion < 60000) {
+        // Active on screen
+        continuousActiveSecondsRef.current += 1;
+        // 20 minutes = 1200 seconds -> Auto Trigger Crying Eyes & Eye Break Lock!
+        if (continuousActiveSecondsRef.current >= 1200 && !isEyeBreakOpen) {
+          triggerEyeBreak();
+        }
+      } else {
+        // User stepped away / idle -> Reset screen time clock
+        continuousActiveSecondsRef.current = 0;
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [isEyeBreakOpen]);
 
   // Notify Electron when Right-Click Menu or Modals open/close
   useEffect(() => {
@@ -480,6 +502,7 @@ export function App() {
         onUnlock={() => {
           setIsEyeBreakOpen(false);
           setIsCrying(false);
+          continuousActiveSecondsRef.current = 0;
         }}
       />
 
