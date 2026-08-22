@@ -31,16 +31,34 @@ export const EyeBreakModal: React.FC<EyeBreakModalProps> = ({
     }
   };
 
-  // Speech Alert Effect: Plays clearly once when opened, stops cleanly when closed
+  // Speech Alert Effect: Repeats warning 2 times during break, stops immediately when closed
   useEffect(() => {
     if (isOpen && !hasSpokenRef.current) {
       hasSpokenRef.current = true;
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
         setTimeout(() => {
-          const msg = new SpeechSynthesisUtterance("You've been staring at the screen for too long! Please take an eye break now.");
-          msg.rate = 1.0;
-          window.speechSynthesis.speak(msg);
+          const speakPhrase = (countRemaining: number) => {
+            if (!isOpen && !hasSpokenRef.current) return;
+            const msg = new SpeechSynthesisUtterance("You've been staring at the screen for too long! Please take an eye break now.");
+            msg.rate = 1.0;
+            
+            if (countRemaining > 1) {
+              msg.onend = () => {
+                setTimeout(() => {
+                  if ('speechSynthesis' in window) {
+                    const msg2 = new SpeechSynthesisUtterance("Please rest your eyes now.");
+                    msg2.rate = 1.0;
+                    window.speechSynthesis.speak(msg2);
+                  }
+                }, 1200);
+              };
+            }
+            
+            window.speechSynthesis.speak(msg);
+          };
+
+          speakPhrase(2);
         }, 50);
       }
     }
