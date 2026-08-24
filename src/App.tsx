@@ -35,7 +35,6 @@ export function App() {
   const [eyePreset, setEyePreset] = useState<EyePresetPosition>('top_center');
   const [customEyePos, setCustomEyePos] = useState<{ x: number; y: number } | null>(null);
   const isDraggingEyesRef = useRef(false);
-  const lastIgnoreStateRef = useRef<boolean | null>(null);
 
   // Display Mode: Defaults to Clean OS Top Status-Bar Widget Panel!
   const [showFullNavbar, setShowFullNavbar] = useState(false);
@@ -133,38 +132,6 @@ export function App() {
 
     return () => clearInterval(timer);
   }, [isEyeBreakOpen]);
-
-  // Expand Electron Window when menu, modals, or custom eye positions are active!
-  useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const win = window as any;
-    if (win.require) {
-      try {
-        const { ipcRenderer } = win.require('electron');
-        const needsExpand = contextMenuState.isOpen || isGameOpen || isAnalyticsOpen || isSpritesOpen || isEyeBreakOpen || webcamActive || eyePreset !== 'top_center';
-        ipcRenderer.send('expand-window-for-menu', needsExpand);
-      } catch {
-        /* ignore */
-      }
-    }
-  }, [contextMenuState.isOpen, isGameOpen, isAnalyticsOpen, isSpritesOpen, isEyeBreakOpen, webcamActive, eyePreset]);
-
-  // Toggle OS Top Bar Widget Mode
-  const toggleTopBarWidgetMode = () => {
-    const nextState = !topBarWidgetMode;
-    setTopBarWidgetMode(nextState);
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const win = window as any;
-    if (win.require) {
-      try {
-        const { ipcRenderer } = win.require('electron');
-        ipcRenderer.send('toggle-widget-mode', nextState);
-      } catch {
-        /* ignore */
-      }
-    }
-  };
 
   // Sync Audio Synth state
   useEffect(() => {
@@ -341,7 +308,7 @@ export function App() {
     };
   }, [theme, webcamActive, laserMode, trailMode, particlesMode, showHeatmap, spotlightMode, eyeCount, topBarWidgetMode, isCrying, eyePreset, customEyePos]);
 
-  // Event Listeners for Mouse Motion, Passthrough & Direct Eye Dragging
+  // Event Listeners for Mouse Motion, Direct Dragging & Clicks
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       mousePosRef.current = { x: e.clientX, y: e.clientY };
@@ -349,37 +316,6 @@ export function App() {
       if (isDraggingEyesRef.current) {
         setEyePreset('custom');
         setCustomEyePos({ x: e.clientX, y: e.clientY });
-      }
-
-      // Detect if hovering over interactive UI (eyes, context menu, modals) vs transparent space
-      const centerPos = getEyeCenterCoordinates(window.innerWidth, window.innerHeight);
-      const distToEyes = Math.hypot(e.clientX - centerPos.x, e.clientY - centerPos.y);
-      const targetEl = e.target as HTMLElement | null;
-      const isOverInteractiveUI =
-        distToEyes < 60 ||
-        contextMenuState.isOpen ||
-        isGameOpen ||
-        isAnalyticsOpen ||
-        isSpritesOpen ||
-        isEyeBreakOpen ||
-        showFullNavbar ||
-        Boolean(targetEl && targetEl.closest('button, input, a, .context-menu-container'));
-
-      const shouldIgnore = !isOverInteractiveUI;
-
-      // Only send IPC when hover state ACTUALLY changes (prevents flooding IPC channel and crashing!)
-      if (lastIgnoreStateRef.current !== shouldIgnore) {
-        lastIgnoreStateRef.current = shouldIgnore;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const win = window as any;
-        if (win.require) {
-          try {
-            const { ipcRenderer } = win.require('electron');
-            ipcRenderer.send('set-ignore-mouse-events', shouldIgnore, { forward: true });
-          } catch {
-            /* ignore */
-          }
-        }
       }
     };
 
@@ -454,7 +390,7 @@ export function App() {
       window.removeEventListener('mouseup', handleMouseUp);
       window.removeEventListener('contextmenu', handleContextMenu);
     };
-  }, [particlesMode, laserMode, eyePreset, customEyePos, isCrying, isEyeBreakOpen, topBarWidgetMode, contextMenuState.isOpen, isGameOpen, isAnalyticsOpen, isSpritesOpen, showFullNavbar]);
+  }, [particlesMode, laserMode, eyePreset, customEyePos, isCrying, isEyeBreakOpen, topBarWidgetMode]);
 
   const toggleWebcam = async () => {
     if (webcamActive) {
@@ -493,7 +429,7 @@ export function App() {
           openSprites={() => setIsSpritesOpen(true)}
           openAnalytics={() => setIsAnalyticsOpen(true)}
           topBarWidgetMode={topBarWidgetMode}
-          toggleTopBarWidgetMode={toggleTopBarWidgetMode}
+          toggleTopBarWidgetMode={() => setTopBarWidgetMode((prev) => !prev)}
         />
       )}
 

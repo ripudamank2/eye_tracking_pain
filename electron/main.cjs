@@ -21,12 +21,12 @@ function createSvgTrayIcon() {
 
 function createWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
-  const { width } = primaryDisplay.bounds;
+  const { width, height } = primaryDisplay.bounds;
 
-  // 100% True Transparent Frameless Always-On-Top Window
+  // 100% True Transparent Frameless Always-On-Top Fullscreen Window
   mainWindow = new BrowserWindow({
     width: width,
-    height: 54,
+    height: height,
     x: 0,
     y: 0,
     center: false,
@@ -92,14 +92,13 @@ function toggleWidgetMode(enableWidget) {
 
   isWidgetMode = enableWidget;
   const primaryDisplay = screen.getPrimaryDisplay();
-  const { width } = primaryDisplay.bounds;
+  const { width, height } = primaryDisplay.bounds;
 
   if (enableWidget) {
     mainWindow.setAlwaysOnTop(true, 'screen-saver');
     mainWindow.setSkipTaskbar(true);
-    mainWindow.setBounds({ x: 0, y: 0, width: width, height: 54 });
+    mainWindow.setBounds({ x: 0, y: 0, width: width, height: height });
     mainWindow.setPosition(0, 0);
-    mainWindow.setResizable(false);
   } else {
     mainWindow.setAlwaysOnTop(false);
     mainWindow.setSkipTaskbar(false);
@@ -130,13 +129,8 @@ ipcMain.on('expand-window-for-menu', (event, expand) => {
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width, height } = primaryDisplay.bounds;
 
-  if (expand) {
-    mainWindow.setBounds({ x: 0, y: 0, width: width, height: height });
-    mainWindow.setPosition(0, 0);
-  } else {
-    mainWindow.setBounds({ x: 0, y: 0, width: width, height: 54 });
-    mainWindow.setPosition(0, 0);
-  }
+  mainWindow.setBounds({ x: 0, y: 0, width: width, height: height });
+  mainWindow.setPosition(0, 0);
 });
 
 // IPC Listener to Pass Mouse Events through Transparent Window to OS Desktop
