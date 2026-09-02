@@ -12,6 +12,13 @@ export interface FacePosition {
   irisRightY?: number;
 }
 
+// AI Camera Gestures: discrete events derived from head motion, mouth shape, and per-eye closure.
+export type CameraGesture = 'nod' | 'shake' | 'smile' | 'wink_left' | 'wink_right';
+
+export interface GestureCallbacks {
+  onGesture?: (gesture: CameraGesture) => void;
+}
+
 // Dynamically load MediaPipe CDN scripts to prevent Vite CJS bundling errors
 function loadScript(src: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -57,6 +64,16 @@ export class WebcamTracker {
   private targetY = window.innerHeight / 2;
   private currentX = window.innerWidth / 2;
   private currentY = window.innerHeight / 2;
+
+  // AI Camera Gestures
+  public gestureCallbacks: GestureCallbacks = {};
+  private noseXHistory: number[] = [];
+  private noseYHistory: number[] = [];
+  private lastGestureTime = 0;
+  private readonly gestureCooldownMs = 1200;
+  private isSmiling = false;
+  private isWinkingLeft = false;
+  private isWinkingRight = false;
 
   public async start(): Promise<boolean> {
     try {
@@ -215,5 +232,81 @@ export class WebcamTracker {
       irisRightY: rightIris.y * 480,
       isTracking: true,
     };
+
+    this.detectGestures(landmarks, noseTip, eyeSpan);
+  }
+
+  // AI Camera Gestures: head nod (confirm), head shake (cancel), smile (heart particles),
+  // and left/right winks - all derived from the same 468-point mesh already being tracked.
+  private detectGestures(
+    landmarks: { x: number; y: number; z?: number }[],
+    noseTip: { x: number; y: number },
+    eyeSpan: number
+  ) {
+    const now = Date.now();
+
+    // --- Head Nod / Shake: track short-window nose position variance ---
+    this.noseXHistory.push(noseTip.x);
+    this.noseYHistory.push(noseTip.y);
+    if (this.noseXHistory.length > 12) this.noseXHistory.shift();
+    if (this.noseYHistory.length > 12) this.noseYHistory.shift();
+
+    if (this.noseXHistory.length === 12 && now - this.lastGestureTime > this.gestureCooldownMs) {
+      const xRange = Math.max(...this.noseXHistory) - Math.min(...this.noseXHistory);
+      const yRange = Math.max(...this.noseYHistory) - Math.min(...this.noseYHistory);
+
+      // Thresholds are normalized-coordinate deltas (face mesh space is 0..1).
+      if (yRange > 0.035 && yRange > xRange * 1.4) {
+        this.lastGestureTime = now;
+        this.noseYHistory = [];
+        this.gestureCallbacks.onGesture?.('nod');
+      } else if (xRange > 0.045 && xRange > yRange * 1.4) {
+        this.lastGestureTime = now;
+        this.noseXHistory = [];
+        this.gestureCallbacks.onGesture?.('shake');
+      }
+    }
+
+    // --- Smile: mouth-corner-to-corner width vs vertical lip gap ---
+    const mouthLeft = landmarks[61];
+    const mouthRight = landmarks[291];
+    const lipTop = landmarks[13];
+    const lipBottom = landmarks[14];
+
+    if (mouthLeft && mouthRight && lipTop && lipBottom) {
+      const mouthWidth = Math.hypot(mouthRight.x - mouthLeft.x, mouthRight.y - mouthLeft.y);
+      const lipGap = Math.hypot(lipBottom.x - lipTop.x, lipBottom.y - lipTop.y);
+      const smileRatio = mouthWidth / (eyeSpan || 0.1);
+      const nowSmiling = smileRatio > 2.35 && lipGap < eyeSpan * 0.5;
+
+      if (nowSmiling && !this.isSmiling) {
+        this.gestureCallbacks.onGesture?.('smile');
+      }
+      this.isSmiling = nowSmiling;
+    }
+
+    // --- Winks: per-eye vertical aperture (top/bottom lid landmarks) ---
+    const leftTop = landmarks[159];
+    const leftBottom = landmarks[145];
+    const rightTop = landmarks[386];
+    const rightBottom = landmarks[374];
+
+    if (leftTop && leftBottom && rightTop && rightBottom) {
+      const leftAperture = Math.abs(leftBottom.y - leftTop.y) / (eyeSpan || 0.1);
+      const rightAperture = Math.abs(rightBottom.y - rightTop.y) / (eyeSpan || 0.1);
+
+      const leftClosed = leftAperture < 0.12;
+      const rightClosed = rightAperture < 0.12;
+
+      // A wink is one eye closed while the other stays clearly open (excludes a full blink).
+      if (leftClosed && !rightClosed && rightAperture > 0.2 && !this.isWinkingLeft) {
+        this.gestureCallbacks.onGesture?.('wink_left');
+      }
+      if (rightClosed && !leftClosed && leftAperture > 0.2 && !this.isWinkingRight) {
+        this.gestureCallbacks.onGesture?.('wink_right');
+      }
+      this.isWinkingLeft = leftClosed && !rightClosed;
+      this.isWinkingRight = rightClosed && !leftClosed;
+    }
   }
 }

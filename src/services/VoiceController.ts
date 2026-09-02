@@ -6,6 +6,69 @@ export interface VoiceCallbacks {
   onVolume: (vol: number) => void;
 }
 
+// Multilingual Voice Commands: BCP-47 tag understood by the Web Speech API on each platform.
+export type VoiceLanguage = 'en-US' | 'es-ES' | 'ja-JP' | 'fr-FR' | 'de-DE' | 'hi-IN';
+
+// Keyword -> command map per language. English stays the richest set; others cover the
+// same command surface with natural local words for "cyberpunk / cat / robot / laser /
+// trail / game / stats".
+const KEYWORD_MAPS: Record<VoiceLanguage, { [key: string]: string }> = {
+  'en-US': {
+    cyber: 'cyberpunk', punk: 'cyberpunk', neon: 'cyberpunk',
+    cat: 'cat', kitty: 'cat',
+    robot: 'robot', bot: 'robot',
+    laser: 'laser', pointer: 'laser',
+    trail: 'trail',
+    game: 'game', shoot: 'game',
+    stats: 'analytics',
+  },
+  'es-ES': {
+    cibernetico: 'cyberpunk', neon: 'cyberpunk',
+    gato: 'cat',
+    robot: 'robot',
+    laser: 'laser', puntero: 'laser',
+    estela: 'trail',
+    juego: 'game', disparar: 'game',
+    estadisticas: 'analytics',
+  },
+  'ja-JP': {
+    サイバー: 'cyberpunk', ネオン: 'cyberpunk',
+    ねこ: 'cat', 猫: 'cat',
+    ロボット: 'robot',
+    レーザー: 'laser',
+    トレイル: 'trail',
+    ゲーム: 'game',
+    統計: 'analytics',
+  },
+  'fr-FR': {
+    cyber: 'cyberpunk', neon: 'cyberpunk',
+    chat: 'cat',
+    robot: 'robot',
+    laser: 'laser', pointeur: 'laser',
+    trainee: 'trail',
+    jeu: 'game', tirer: 'game',
+    statistiques: 'analytics',
+  },
+  'de-DE': {
+    cyber: 'cyberpunk', neon: 'cyberpunk',
+    katze: 'cat',
+    roboter: 'robot',
+    laser: 'laser', zeiger: 'laser',
+    spur: 'trail',
+    spiel: 'game', schiessen: 'game',
+    statistik: 'analytics',
+  },
+  'hi-IN': {
+    cyber: 'cyberpunk',
+    billi: 'cat',
+    robot: 'robot',
+    laser: 'laser',
+    trail: 'trail',
+    khel: 'game',
+    aankdo: 'analytics',
+  },
+};
+
 interface ISpeechRecognition extends EventTarget {
   continuous: boolean;
   interimResults: boolean;
@@ -42,9 +105,11 @@ export class VoiceController {
   public isListening = false;
   private callbacks: VoiceCallbacks;
   private lastMatchTime = 0;
+  private language: VoiceLanguage = 'en-US';
 
-  constructor(callbacks: VoiceCallbacks) {
+  constructor(callbacks: VoiceCallbacks, language: VoiceLanguage = 'en-US') {
     this.callbacks = callbacks;
+    this.language = language;
     const win = window as unknown as SpeechWindow;
     const SpeechClass = win.SpeechRecognition || win.webkitSpeechRecognition;
 
@@ -53,7 +118,7 @@ export class VoiceController {
         this.recognition = new SpeechClass();
         this.recognition.continuous = true;
         this.recognition.interimResults = true;
-        this.recognition.lang = 'en-US';
+        this.recognition.lang = this.language;
 
         this.recognition.onresult = (event: SpeechRecognitionEvent) => {
           const now = Date.now();
@@ -64,24 +129,10 @@ export class VoiceController {
 
           if (now - this.lastMatchTime < 800) return;
 
-          const keywords: { [key: string]: string } = {
-            cyber: 'cyberpunk',
-            punk: 'cyberpunk',
-            neon: 'cyberpunk',
-            cat: 'cat',
-            kitty: 'cat',
-            robot: 'robot',
-            bot: 'robot',
-            laser: 'laser',
-            pointer: 'laser',
-            trail: 'trail',
-            game: 'game',
-            shoot: 'game',
-            stats: 'analytics',
-          };
+          const keywords = KEYWORD_MAPS[this.language] ?? KEYWORD_MAPS['en-US'];
 
           for (const [kw, cmd] of Object.entries(keywords)) {
-            if (lowerSpeech.includes(kw)) {
+            if (lowerSpeech.includes(kw.toLowerCase())) {
               this.lastMatchTime = now;
               this.callbacks.onTranscript(`✅ Executed: "${cmd.toUpperCase()}" ("${rawSpeech}")`);
               this.callbacks.onCommand(cmd);
@@ -92,6 +143,13 @@ export class VoiceController {
       } catch {
         this.recognition = null;
       }
+    }
+  }
+
+  public setLanguage(language: VoiceLanguage) {
+    this.language = language;
+    if (this.recognition) {
+      this.recognition.lang = language;
     }
   }
 

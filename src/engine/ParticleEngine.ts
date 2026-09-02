@@ -32,13 +32,24 @@ export interface ClickPoint {
   timestamp: number;
 }
 
+export interface GravityWell {
+  x: number;
+  y: number;
+  age: number;
+  maxAge: number;
+}
+
 export class ParticleEngine {
   public particles: Particle[] = [];
   public trail: TrailPoint[] = [];
   public badges: ModifierBadge[] = [];
   public clickPoints: ClickPoint[] = [];
+  public gravityWells: GravityWell[] = [];
   public currentShape: ParticleShape = 'default';
+  // Speed-Adaptive Trails: cyan at rest, shifting toward fiery orange as cursor speed increases.
+  public speedAdaptiveTrails = false;
   private maxTrail = 20;
+  private lastTrailSpeed = 0;
 
   public spawnBurst(x: number, y: number, color = '#f59e0b') {
     const count = 16;
@@ -70,8 +81,9 @@ export class ParticleEngine {
     });
   }
 
-  public addTrailPoint(x: number, y: number) {
+  public addTrailPoint(x: number, y: number, speed = 0) {
     this.trail.unshift({ x, y, alpha: 1.0 });
+    this.lastTrailSpeed = speed;
     if (this.trail.length > this.maxTrail) this.trail.pop();
   }
 
@@ -80,9 +92,32 @@ export class ParticleEngine {
     if (this.clickPoints.length > 200) this.clickPoints.shift();
   }
 
+  // Gravity Well Black Hole FX: click spawns a well that pulls nearby particles inward before dissipating.
+  public spawnGravityWell(x: number, y: number) {
+    this.gravityWells.push({ x, y, age: 0, maxAge: 1.4 });
+  }
+
   public update(dt: number) {
+    for (let i = this.gravityWells.length - 1; i >= 0; i--) {
+      const well = this.gravityWells[i];
+      well.age += dt;
+      if (well.age >= well.maxAge) {
+        this.gravityWells.splice(i, 1);
+      }
+    }
+
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i];
+
+      for (const well of this.gravityWells) {
+        const dx = well.x - p.x;
+        const dy = well.y - p.y;
+        const distSq = Math.max(100, dx * dx + dy * dy);
+        const pull = (2200 / distSq) * (1 - well.age / well.maxAge);
+        p.vx += dx * pull * dt;
+        p.vy += dy * pull * dt;
+      }
+
       p.x += p.vx * dt;
       p.y += p.vy * dt;
       p.alpha -= dt * 2.0;
@@ -101,6 +136,17 @@ export class ParticleEngine {
     }
   }
 
+  // Interpolates cyan (slow) -> orange (fast) for the speed-adaptive trail color.
+  private speedToColor(speed: number): string {
+    const t = Math.max(0, Math.min(1, speed / 2200));
+    const from = { r: 6, g: 182, b: 212 };
+    const to = { r: 249, g: 115, b: 22 };
+    const r = Math.round(from.r + (to.r - from.r) * t);
+    const g = Math.round(from.g + (to.g - from.g) * t);
+    const b = Math.round(from.b + (to.b - from.b) * t);
+    return `${r}, ${g}, ${b}`;
+  }
+
   public drawTrail(ctx: CanvasRenderingContext2D) {
     if (this.trail.length < 2) return;
     ctx.save();
@@ -108,14 +154,37 @@ export class ParticleEngine {
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
+    const rgb = this.speedAdaptiveTrails ? this.speedToColor(this.lastTrailSpeed) : '6, 182, 212';
+
     for (let i = 0; i < this.trail.length - 1; i++) {
       const pt1 = this.trail[i];
       const pt2 = this.trail[i + 1];
       ctx.beginPath();
       ctx.moveTo(pt1.x, pt1.y);
       ctx.lineTo(pt2.x, pt2.y);
-      ctx.strokeStyle = `rgba(6, 182, 212, ${pt1.alpha * 0.7})`;
+      ctx.strokeStyle = `rgba(${rgb}, ${pt1.alpha * 0.7})`;
       ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  public drawGravityWells(ctx: CanvasRenderingContext2D) {
+    if (this.gravityWells.length === 0) return;
+    ctx.save();
+    for (const well of this.gravityWells) {
+      const progress = well.age / well.maxAge;
+      const radius = 6 + progress * 34;
+      const alpha = 1 - progress;
+
+      const grad = ctx.createRadialGradient(well.x, well.y, 0, well.x, well.y, radius);
+      grad.addColorStop(0, `rgba(2, 6, 23, ${alpha})`);
+      grad.addColorStop(0.7, `rgba(76, 29, 149, ${alpha * 0.7})`);
+      grad.addColorStop(1, 'rgba(76, 29, 149, 0)');
+
+      ctx.beginPath();
+      ctx.arc(well.x, well.y, radius, 0, Math.PI * 2);
+      ctx.fillStyle = grad;
+      ctx.fill();
     }
     ctx.restore();
   }

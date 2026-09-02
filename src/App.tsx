@@ -6,16 +6,46 @@ import { GazeGameModal } from './components/GazeGameModal';
 import { CustomSpriteModal } from './components/CustomSpriteModal';
 import { EyeBreakModal } from './components/EyeBreakModal';
 import { WebcamPreview } from './components/WebcamPreview';
-import { EyeEngine } from './engine/EyeEngine';
-import type { EyeTheme } from './engine/EyeEngine';
+import { EyeStudioModal } from './components/EyeStudioModal';
+import { EyeEngine, DEFAULT_CUSTOM_EYE_STYLE } from './engine/EyeEngine';
+import type { EyeTheme, EyeExpression, CustomEyeStyle } from './engine/EyeEngine';
 import { ParticleEngine } from './engine/ParticleEngine';
 import type { ParticleShape } from './engine/ParticleEngine';
 import { WebcamTracker } from './services/WebcamTracker';
+import type { CameraGesture } from './services/WebcamTracker';
 import { AudioSynth } from './services/AudioSynth';
 import { VoiceController } from './services/VoiceController';
+import type { VoiceLanguage } from './services/VoiceController';
+import { GazeRecorder } from './services/GazeRecorder';
 import { Mic, SlidersHorizontal, Move } from 'lucide-react';
 
 export type EyePresetPosition = 'top_center' | 'top_left' | 'top_right' | 'bottom_left' | 'bottom_right' | 'center' | 'custom';
+
+// Cognitive-Load & Focus Heatmap: renders accumulated gaze-dwell points (where the cursor/gaze
+// lingered, not where clicks happened) as a focus-intensity map. A real pupillometry-based
+// cognitive-load signal needs dedicated eye-tracking hardware (see PROJECT_STATUS.md); this is
+// the dwell-time proxy that's honestly buildable from cursor/gaze position alone.
+function drawAttentionHeatmap(
+  ctx: CanvasRenderingContext2D,
+  points: { x: number; y: number; timestamp: number }[],
+  now: number
+) {
+  if (points.length === 0) return;
+  ctx.save();
+  for (const pt of points) {
+    const age = (now - pt.timestamp) / 15000;
+    const alpha = Math.max(0, 1 - age) * 0.5;
+    const grad = ctx.createRadialGradient(pt.x, pt.y, 2, pt.x, pt.y, 45);
+    grad.addColorStop(0, `rgba(139, 92, 246, ${alpha})`);
+    grad.addColorStop(0.6, `rgba(59, 130, 246, ${alpha * 0.5})`);
+    grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.beginPath();
+    ctx.arc(pt.x, pt.y, 45, 0, Math.PI * 2);
+    ctx.fillStyle = grad;
+    ctx.fill();
+  }
+  ctx.restore();
+}
 
 export function App() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -30,6 +60,42 @@ export function App() {
   const [spotlightMode, setSpotlightMode] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [particleShape, setParticleShape] = useState<ParticleShape>('default');
+
+  // Emotion & Expression Engine
+  const [expression, setExpression] = useState<EyeExpression>('neutral');
+  const [showEyebrows, setShowEyebrows] = useState(false);
+  const circularMotionScoreRef = useRef(0);
+  const lastAngleRef = useRef<number | null>(null);
+  const expressionResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Custom Eye Studio
+  const [isEyeStudioOpen, setIsEyeStudioOpen] = useState(false);
+  const [customEyeStyle, setCustomEyeStyle] = useState<CustomEyeStyle>({ ...DEFAULT_CUSTOM_EYE_STYLE });
+
+  // Speed-Adaptive Trails & Gravity Well FX
+  const [speedAdaptiveTrails, setSpeedAdaptiveTrails] = useState(false);
+  const [gravityWellMode, setGravityWellMode] = useState(false);
+
+  // Attention Heatmap (gaze dwell time, distinct from the existing click heatmap)
+  const [showAttentionHeatmap, setShowAttentionHeatmap] = useState(false);
+  const gazeDwellPointsRef = useRef<{ x: number; y: number; timestamp: number }[]>([]);
+
+  // Musical Eye Theremin
+  const [thereminMode, setThereminMode] = useState(false);
+
+  // Music Reactive Pupil Pulse
+  const [musicReactiveMode, setMusicReactiveMode] = useState(false);
+  const musicPulseRef = useRef(0);
+
+  // Gaze Overlay Screen Recorder
+  const [isRecording, setIsRecording] = useState(false);
+  const gazeRecorderRef = useRef(new GazeRecorder());
+
+  // Multilingual Voice Commands
+  const [voiceLanguage, setVoiceLanguage] = useState<VoiceLanguage>('en-US');
+
+  // AI Camera Gestures - transient toast text shown when a gesture fires
+  const [lastGesture, setLastGesture] = useState<CameraGesture | null>(null);
 
   // Eye Screen Positioning & Direct Mouse Drag State
   const [eyePreset, setEyePreset] = useState<EyePresetPosition>('top_center');
@@ -82,6 +148,7 @@ export function App() {
   const clickBurstRef = useRef(0);
   const isWinkingRef = useRef(false);
   const isGlobalCursorRef = useRef(false);
+  const speedRef = useRef(0);
 
   // Subscribe to OS-level cursor positions streamed from the Electron main process.
   // The overlay window is permanently click-through, so DOM mouse events never fire
@@ -147,6 +214,18 @@ export function App() {
     continuousActiveSecondsRef.current = 0;
   };
 
+  // Manual Emotion & Expression Engine triggers, exposed from the Studio Controls menu.
+  const triggerExpression = (next: EyeExpression, durationMs: number) => {
+    setExpression(next);
+    if (expressionResetTimerRef.current) clearTimeout(expressionResetTimerRef.current);
+    expressionResetTimerRef.current = setTimeout(() => setExpression('neutral'), durationMs);
+  };
+  const triggerHappy = () => triggerExpression('happy', 1800);
+  const triggerLove = () => triggerExpression('love', 2500);
+  const triggerSurprised = () => triggerExpression('surprised', 1500);
+  const triggerFocused = () => triggerExpression('focused', 1500);
+  const triggerSleepy = () => triggerExpression('sleepy', 1500);
+
   // Continuous Active Screen Time Tracking
   useEffect(() => {
     const timer = setInterval(() => {
@@ -174,6 +253,68 @@ export function App() {
     particleEngineRef.current.currentShape = particleShape;
   }, [particleShape]);
 
+  // Sync Speed-Adaptive Trails toggle
+  useEffect(() => {
+    particleEngineRef.current.speedAdaptiveTrails = speedAdaptiveTrails;
+  }, [speedAdaptiveTrails]);
+
+  // Sync Custom Eye Studio style live into the engine
+  useEffect(() => {
+    eyeEngineRef.current.customStyle = customEyeStyle;
+  }, [customEyeStyle]);
+
+  // Musical Eye Theremin: start/stop the sustained oscillator with the toggle.
+  useEffect(() => {
+    if (thereminMode) {
+      audioSynthRef.current.startTheremin();
+    } else {
+      audioSynthRef.current.stopTheremin();
+    }
+    return () => {
+      audioSynthRef.current.stopTheremin();
+    };
+  }, [thereminMode]);
+
+  // Music Reactive Pupil Pulse: request mic input once enabled.
+  useEffect(() => {
+    if (!musicReactiveMode) return;
+    let cancelled = false;
+    audioSynthRef.current.enableMusicReactivity().then((ok) => {
+      if (!ok && !cancelled) setMusicReactiveMode(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [musicReactiveMode]);
+
+  // Route AI Camera Gestures (nod/shake/smile/wink) into app-level reactions.
+  useEffect(() => {
+    webcamTrackerRef.current.gestureCallbacks = {
+      onGesture: (gesture) => {
+        setLastGesture(gesture);
+        setTimeout(() => setLastGesture((prev) => (prev === gesture ? null : prev)), 1800);
+
+        if (gesture === 'smile') {
+          const center = getEyeCenterCoordinates(window.innerWidth, window.innerHeight);
+          particleEngineRef.current.spawnBurst(center.x, center.y, '#ec4899');
+          setExpression('love');
+          if (expressionResetTimerRef.current) clearTimeout(expressionResetTimerRef.current);
+          expressionResetTimerRef.current = setTimeout(() => setExpression('neutral'), 2000);
+        } else if (gesture === 'nod') {
+          audioSynthRef.current.playHit();
+        } else if (gesture === 'shake') {
+          audioSynthRef.current.playPop();
+        } else if (gesture === 'wink_left' || gesture === 'wink_right') {
+          isWinkingRef.current = true;
+          setTimeout(() => {
+            isWinkingRef.current = false;
+          }, 300);
+        }
+      },
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleVoiceCommand = (cmd: string) => {
     audioSynthRef.current.playPop();
     if (cmd === 'laser') setLaserMode((prev) => !prev);
@@ -191,16 +332,25 @@ export function App() {
 
   // Initialize Voice Controller
   useEffect(() => {
-    voiceControllerRef.current = new VoiceController({
-      onTranscript: (text) => {
-        setLiveTranscript(text);
+    voiceControllerRef.current = new VoiceController(
+      {
+        onTranscript: (text) => {
+          setLiveTranscript(text);
+        },
+        onVolume: (vol) => {
+          setMicVolume(vol);
+        },
+        onCommand: handleVoiceCommand,
       },
-      onVolume: (vol) => {
-        setMicVolume(vol);
-      },
-      onCommand: handleVoiceCommand,
-    });
+      voiceLanguage
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Multilingual Voice Commands: propagate a language change to the live recognizer.
+  useEffect(() => {
+    voiceControllerRef.current?.setLanguage(voiceLanguage);
+  }, [voiceLanguage]);
 
   const toggleVoice = async () => {
     if (!voiceControllerRef.current) return;
@@ -255,15 +405,60 @@ export function App() {
         setDistanceMeters((prev) => prev + distM);
 
         if (trailMode) {
-          particleEngineRef.current.addTrailPoint(targetX, targetY);
+          particleEngineRef.current.addTrailPoint(targetX, targetY, speedRef.current);
         }
       }
 
       const speed = distPx / dt;
+      speedRef.current = speed;
       setCurrentSpeed(speed);
       lastMousePosRef.current = { x: targetX, y: targetY };
 
       const isIdle = time - lastMotionTimeRef.current > 25000;
+
+      // Happy/Smiling Eyes: detect sustained circular cursor motion via angular velocity sign.
+      if (distPx > 3.0) {
+        const angle = Math.atan2(dy, dx);
+        if (lastAngleRef.current !== null) {
+          let delta = angle - lastAngleRef.current;
+          if (delta > Math.PI) delta -= Math.PI * 2;
+          if (delta < -Math.PI) delta += Math.PI * 2;
+          circularMotionScoreRef.current = circularMotionScoreRef.current * 0.95 + delta;
+
+          if (Math.abs(circularMotionScoreRef.current) > 6 && expression === 'neutral') {
+            setExpression('happy');
+            if (expressionResetTimerRef.current) clearTimeout(expressionResetTimerRef.current);
+            expressionResetTimerRef.current = setTimeout(() => setExpression('neutral'), 1500);
+            circularMotionScoreRef.current = 0;
+          }
+        }
+        lastAngleRef.current = angle;
+      }
+
+      // Happy/Smiling Eyes on click bursts too (quick double-tap feels celebratory).
+      if (clickBurstRef.current >= 2 && expression === 'neutral') {
+        setExpression('happy');
+        if (expressionResetTimerRef.current) clearTimeout(expressionResetTimerRef.current);
+        expressionResetTimerRef.current = setTimeout(() => setExpression('neutral'), 900);
+      }
+
+      // Musical Eye Theremin: X controls pitch, Y controls vibrato depth.
+      if (thereminMode) {
+        audioSynthRef.current.updateTheremin(targetX / canvas.width, targetY / canvas.height);
+      }
+
+      // Music Reactive Pupil Pulse
+      musicPulseRef.current = musicReactiveMode ? audioSynthRef.current.getMusicPulseLevel() : 0;
+
+      // Cognitive-Load / Attention Heatmap: record gaze dwell points (distinct from click heatmap).
+      if (showAttentionHeatmap) {
+        const points = gazeDwellPointsRef.current;
+        if (distPx < 4.0) {
+          points.push({ x: targetX, y: targetY, timestamp: time });
+        }
+        const cutoff = time - 15000;
+        while (points.length > 0 && points[0].timestamp < cutoff) points.shift();
+      }
 
       particleEngineRef.current.update(dt);
 
@@ -275,9 +470,15 @@ export function App() {
         particleEngineRef.current.drawHeatmap(ctx);
       }
 
+      if (showAttentionHeatmap) {
+        drawAttentionHeatmap(ctx, gazeDwellPointsRef.current, time);
+      }
+
       if (trailMode) {
         particleEngineRef.current.drawTrail(ctx);
       }
+
+      particleEngineRef.current.drawGravityWells(ctx);
 
       // Compute Eye Positions based on Preset / Drag
       const radius = topBarWidgetMode && eyePreset === 'top_center' ? 14 : 28;
@@ -300,6 +501,9 @@ export function App() {
           clickBurstCount: clickBurstRef.current,
           isWinking: isWinkingRef.current,
           isCrying,
+          expression,
+          showEyebrows,
+          musicPulseLevel: musicPulseRef.current,
         },
         dt
       );
@@ -318,6 +522,9 @@ export function App() {
           clickBurstCount: clickBurstRef.current,
           isWinking: isWinkingRef.current,
           isCrying,
+          expression,
+          showEyebrows,
+          musicPulseLevel: musicPulseRef.current,
         });
       }
 
@@ -337,7 +544,25 @@ export function App() {
       window.removeEventListener('resize', handleResize);
       cancelAnimationFrame(animationFrameId);
     };
-  }, [theme, webcamActive, laserMode, trailMode, particlesMode, showHeatmap, spotlightMode, eyeCount, topBarWidgetMode, isCrying, eyePreset, customEyePos]);
+  }, [
+    theme,
+    webcamActive,
+    laserMode,
+    trailMode,
+    particlesMode,
+    showHeatmap,
+    showAttentionHeatmap,
+    spotlightMode,
+    eyeCount,
+    topBarWidgetMode,
+    isCrying,
+    eyePreset,
+    customEyePos,
+    expression,
+    showEyebrows,
+    thereminMode,
+    musicReactiveMode,
+  ]);
 
   // Event Listeners for Mouse Motion, Direct Dragging & Clicks
   useEffect(() => {
@@ -390,6 +615,10 @@ export function App() {
 
         particleEngineRef.current.recordClick(e.clientX, e.clientY);
 
+        if (gravityWellMode) {
+          particleEngineRef.current.spawnGravityWell(e.clientX, e.clientY);
+        }
+
         const modifiers: string[] = [];
         if (e.ctrlKey) modifiers.push('Ctrl');
         if (e.shiftKey) modifiers.push('Shift');
@@ -425,7 +654,7 @@ export function App() {
       window.removeEventListener('mouseup', handleMouseUp);
       window.removeEventListener('contextmenu', handleContextMenu);
     };
-  }, [particlesMode, laserMode, eyePreset, customEyePos, isCrying, isEyeBreakOpen, topBarWidgetMode]);
+  }, [particlesMode, laserMode, eyePreset, customEyePos, isCrying, isEyeBreakOpen, topBarWidgetMode, gravityWellMode]);
 
   const toggleWebcam = async () => {
     if (webcamActive) {
@@ -436,6 +665,30 @@ export function App() {
       if (success) setWebcamActive(true);
       else alert('Webcam permission denied or unavailable.');
     }
+  };
+
+  // Gaze Overlay Screen Recorder: records the canvas overlay (eyes + FX) to a downloadable WebM clip.
+  const toggleRecording = () => {
+    if (isRecording) {
+      gazeRecorderRef.current.stop();
+      setIsRecording(false);
+      return;
+    }
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const started = gazeRecorderRef.current.start(canvas, (blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `eye-tracker-clip-${Date.now()}.webm`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    if (started) setIsRecording(true);
+    else alert('Screen recording is not supported in this browser.');
   };
 
   return (
@@ -554,6 +807,7 @@ export function App() {
         openGame={() => setIsGameOpen(true)}
         openSprites={() => setIsSpritesOpen(true)}
         openAnalytics={() => setIsAnalyticsOpen(true)}
+        openEyeStudio={() => setIsEyeStudioOpen(true)}
         eyeCount={eyeCount}
         setEyeCount={setEyeCount}
         showFullNavbar={showFullNavbar}
@@ -561,7 +815,44 @@ export function App() {
         triggerEyeBreak={triggerEyeBreak}
         eyePreset={eyePreset}
         setEyePreset={setEyePreset}
+        showEyebrows={showEyebrows}
+        setShowEyebrows={setShowEyebrows}
+        speedAdaptiveTrails={speedAdaptiveTrails}
+        setSpeedAdaptiveTrails={setSpeedAdaptiveTrails}
+        gravityWellMode={gravityWellMode}
+        setGravityWellMode={setGravityWellMode}
+        showAttentionHeatmap={showAttentionHeatmap}
+        setShowAttentionHeatmap={setShowAttentionHeatmap}
+        thereminMode={thereminMode}
+        setThereminMode={setThereminMode}
+        musicReactiveMode={musicReactiveMode}
+        setMusicReactiveMode={setMusicReactiveMode}
+        isRecording={isRecording}
+        toggleRecording={toggleRecording}
+        voiceLanguage={voiceLanguage}
+        setVoiceLanguage={setVoiceLanguage}
+        triggerHappy={triggerHappy}
+        triggerLove={triggerLove}
+        triggerSurprised={triggerSurprised}
+        triggerFocused={triggerFocused}
+        triggerSleepy={triggerSleepy}
       />
+
+      {/* Custom Eye Studio Modal */}
+      <EyeStudioModal
+        isOpen={isEyeStudioOpen}
+        onClose={() => setIsEyeStudioOpen(false)}
+        style={customEyeStyle}
+        setStyle={setCustomEyeStyle}
+        onApply={() => setTheme('custom')}
+      />
+
+      {/* AI Camera Gesture Toast */}
+      {lastGesture && (
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900/95 border border-cyan-500/40 rounded-xl px-4 py-2 text-xs font-mono text-cyan-300 shadow-xl backdrop-blur-md animate-in fade-in">
+          Gesture detected: <span className="font-bold">{lastGesture.replace('_', ' ')}</span>
+        </div>
+      )}
 
       {/* Eye Rest Break Safety Lock Modal */}
       <EyeBreakModal
