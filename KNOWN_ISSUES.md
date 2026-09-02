@@ -21,28 +21,54 @@ single-frame geometric signature; a real implementation needs a trained model. D
 present the current heuristic as that feature — it covers a meaningfully smaller,
 already-useful surface (discrete gestures), not general mood sync.
 
-## Electron desktop app could not be launched from this development environment
+## Update: native Electron launch was previously misdiagnosed as an environment limitation
 
-This pass's implementation work was verified by running the app as a **web page** (`npm
-run dev` + Playwright against Chromium) rather than as the actual Electron desktop app.
-Two independent environment problems blocked the Electron path here specifically:
+An earlier pass in this repo's history concluded Electron could not run at all in this
+development environment, after seeing a SIGSEGV on every `BrowserWindow` creation attempt
+(including a minimal reproduction with none of this app's code). That diagnosis was
+**wrong** — later investigation found the actual cause was a corrupted/incomplete
+`node_modules/electron/dist/` (missing most of the extracted binary's supporting files),
+left behind after an `npm install` that ran before its postinstall script had been
+approved via `allowScripts`. After manually extracting a complete, cached Electron build,
+the real desktop app launches natively without crashing: a live window opens at real
+desktop resolution, loads the production build over `file://`, and the eye renderer draws
+correctly (confirmed via `webContents.capturePage()` - see PROJECT_STATUS.md → Native
+Electron Verification). Webcam permission + the MediaPipe pipeline were also confirmed
+working natively via Chrome's fake-camera-device flag. If Electron appears to crash
+immediately on `BrowserWindow` creation again, check `node_modules/electron/dist/` for a
+complete extraction before assuming it's an environment-wide limitation.
 
-1. `ELECTRON_RUN_AS_NODE=1` is set in this shell (inherited from the coding-assistant
-   host process), which makes Electron execute any script as plain Node instead of
-   launching the Electron runtime — `require('electron')` then returns a path string, not
-   the API, and `app` is `undefined`.
-2. After working around (1), Electron segfaults (SIGSEGV) creating any `BrowserWindow` in
-   this specific container's display session, across every GPU/windowing backend tried
-   (`--disable-gpu`, `--use-gl=swiftshader`, `--headless`, native Wayland). This reproduced
-   even with a 20-line minimal Electron script containing none of this app's code, so it
-   is an environment limitation, not a defect introduced by this work.
+## Native Electron verification is still partial
 
-**Action needed:** run `npm run dev:electron`-equivalent (`npx electron electron/main.cjs`)
-and `npm run widget` on your actual desktop session to confirm the global-cursor IPC
-stream, camera permission dialog, and mic permission dialog behave correctly under
-Electron specifically — the web-browser verification done in this pass is strong evidence
-the feature logic is correct, but Electron's renderer sandbox and permission model can
-differ from a plain browser tab.
+Native testing this session covered: app launch, window rendering, webcam permission
+grant + MediaPipe pipeline activation (via a synthetic fake camera - no real face, so
+tracking correctly reported 0% confidence rather than claiming to track). It did **not**
+cover, because they need capabilities this sandbox doesn't have or wasn't safe to spend
+further time chasing in this pass: a **real human face** for actual gaze-accuracy
+measurement (only Chrome's synthetic test-pattern device was available), microphone
+permission (untested this session), the global-cursor IPC stream in the standalone widget
+(the widget launched and mounted its React app correctly, but the capture window was too
+small to visually confirm eye rendering), and any multi-hour long-running-session check
+(memory growth, drift). These remain genuinely unverified, not assumed-fine.
+
+## MediaPipe inference measurably contends with the render loop on the main thread
+
+`WebcamTracker`'s camera loop calls `await this.faceMesh.send({ image })` synchronously
+inside MediaPipe's own frame callback - this is pre-existing architecture, not something
+this pass introduced, but this pass's new diagnostics are what surfaced it as a measured
+number instead of a suspicion. With the diagnostics panel open while webcam tracking was
+active (via a fake camera device, so this is representative of real inference cost, not
+video decode cost), the render loop's FPS dropped from a steady 60.0 to ~26 with 156
+dropped frames accumulating over a few seconds. Both MediaPipe's WASM inference and the
+app's `requestAnimationFrame` render loop run on the same JS thread, so heavier inference
+directly steals frame budget from rendering. This sandbox's software GPU rasterizer
+(`--use-gl=swiftshader`) makes the render side of that contention worse than a real GPU
+would, so the exact 26fps figure is not representative of real hardware - but the
+underlying contention (one thread, two competing workloads) is architectural and will
+reproduce to some degree on any machine, worse on lower-end ones. The real fix is running
+MediaPipe inference in a Web Worker (MediaPipe's own examples support this) so it can
+no longer block the paint thread; that is a nontrivial change and was not made in this
+pass - it's the top item in ROADMAP.md's core-engine follow-up list.
 
 ## Pre-existing: Electron `nodeIntegration: true`, `contextIsolation: false`
 
@@ -55,10 +81,12 @@ scoped as future work, not fixed here since it wasn't part of the requested road
 implementation and changing it would require re-plumbing the IPC boundary with a preload
 script + `contextBridge`.
 
-## No automated test suite
+## Test coverage is real but narrow
 
-There is no Jest/Vitest/Playwright test config or `test` script in this repository.
-Everything in this pass was verified manually (typecheck, lint, build, and live
-Playwright-driven browser screenshots — see PROJECT_STATUS.md → Tests). This is
-adequate evidence the shipped code works, but there's no regression safety net for future
-changes.
+Vitest now covers the pure gaze/blink/calibration/render-timing logic (26 tests, see
+`src/engine/*.test.ts`) with synthetic landmark fixtures - this is genuine, checked-in
+regression coverage, not a placeholder. It does not and cannot cover: real MediaPipe
+inference behavior, real camera hardware quirks (varying lighting, actual human faces at
+varying distances), or React component rendering (no `@testing-library/react` or jsdom
+setup exists). "The pure math is tested" is a real, narrower claim than "the eye tracker
+is tested" - both are true, but only the first is backed by these tests.
