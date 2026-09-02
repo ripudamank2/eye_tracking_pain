@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Eye Widget</title>
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background: transparent;
+        width: 100%;
+        height: 100%;
+      }
+      /* Opaque rounded tile so the widget is visible even where the window
+         manager will not composite a transparent window. */
+      #widget-root {
+        width: 100%;
+        height: 100%;
+        background: #0f172a;
+        border-radius: 10px;
+        overflow: hidden;
+      }
+      canvas { display: block; width: 100%; height: 100%; }
+    </style>
+  </head>
+  <body>
+    <div id="widget-root"></div>
+    <script type="module" src="/src/widget/main.tsx"></script>
+  </body>
+</html>

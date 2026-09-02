@@ -81,6 +81,37 @@ export function App() {
   const continuousActiveSecondsRef = useRef(0);
   const clickBurstRef = useRef(0);
   const isWinkingRef = useRef(false);
+  const isGlobalCursorRef = useRef(false);
+
+  // Subscribe to OS-level cursor positions streamed from the Electron main process.
+  // The overlay window is permanently click-through, so DOM mouse events never fire
+  // over the desktop; this is the only cursor source when running under Electron.
+  useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const win = window as any;
+    if (!win.require) return;
+
+    try {
+      const { ipcRenderer } = win.require('electron');
+
+      const handleCursor = (_event: unknown, pos: { x: number; y: number }) => {
+        mousePosRef.current = pos;
+        isGlobalCursorRef.current = true;
+
+        if (isDraggingEyesRef.current) {
+          setEyePreset('custom');
+          setCustomEyePos(pos);
+        }
+      };
+
+      ipcRenderer.on('cursor-position', handleCursor);
+      return () => {
+        ipcRenderer.removeListener('cursor-position', handleCursor);
+      };
+    } catch {
+      /* not running under Electron - fall back to DOM mouse events */
+    }
+  }, []);
 
   // Computed Base Position of Eyes
   const getEyeCenterCoordinates = (width: number, height: number) => {
@@ -311,6 +342,10 @@ export function App() {
   // Event Listeners for Mouse Motion, Direct Dragging & Clicks
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
+      // Under Electron the global cursor stream is authoritative; ignore DOM events
+      // so the two sources cannot fight over the same ref.
+      if (isGlobalCursorRef.current) return;
+
       mousePosRef.current = { x: e.clientX, y: e.clientY };
 
       if (isDraggingEyesRef.current) {

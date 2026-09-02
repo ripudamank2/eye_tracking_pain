@@ -9,6 +9,8 @@
   "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
+    "widget": "electron electron/widget-main.cjs",
+    "widget:build": "npm run build && electron electron/widget-main.cjs",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",

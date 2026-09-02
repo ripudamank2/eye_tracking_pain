@@ -13,6 +13,7 @@ app.commandLine.appendSwitch('ozone-platform-hint', 'x11');
 let mainWindow = null;
 let tray = null;
 let isWidgetMode = true;
+let cursorPollTimer = null;
 
 function createSvgTrayIcon() {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`;
@@ -46,6 +47,15 @@ function createWindow() {
 
   // Force snap to top-left (0, 0) on Linux GNOME / X11 / Wayland
   mainWindow.setPosition(0, 0);
+
+  // Permanently click-through: the overlay never swallows a click, so the desktop
+  // underneath stays fully usable. Cursor position comes from the OS instead of
+  // from DOM mouse events, so we never need to toggle this back off.
+  mainWindow.setIgnoreMouseEvents(true, { forward: false });
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    startCursorPolling();
+  });
 
   const distPath = path.join(__dirname, '../dist/index.html');
 
@@ -87,6 +97,40 @@ function createWindow() {
   tray.setContextMenu(contextMenu);
 }
 
+// Poll the OS-level cursor position and stream it to the renderer.
+// This is what lets the eyes follow the pointer across the whole desktop while
+// the window itself ignores all mouse input.
+function startCursorPolling() {
+  stopCursorPolling();
+
+  const winBounds = mainWindow.getBounds();
+  let lastX = -1;
+  let lastY = -1;
+
+  cursorPollTimer = setInterval(() => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+
+    const pt = screen.getCursorScreenPoint();
+
+    // Translate desktop coordinates into window-relative canvas coordinates.
+    const x = pt.x - winBounds.x;
+    const y = pt.y - winBounds.y;
+
+    if (x === lastX && y === lastY) return;
+    lastX = x;
+    lastY = y;
+
+    mainWindow.webContents.send('cursor-position', { x, y });
+  }, 16);
+}
+
+function stopCursorPolling() {
+  if (cursorPollTimer) {
+    clearInterval(cursorPollTimer);
+    cursorPollTimer = null;
+  }
+}
+
 function toggleWidgetMode(enableWidget) {
   if (!mainWindow) return;
 
@@ -107,6 +151,9 @@ function toggleWidgetMode(enableWidget) {
   }
 
   mainWindow.webContents.send('widget-mode-changed', isWidgetMode);
+
+  // Window moved/resized: restart polling so coordinates stay correct.
+  startCursorPolling();
 }
 
 function lockOsScreen() {
@@ -124,20 +171,13 @@ ipcMain.on('toggle-widget-mode', (event, enable) => {
   toggleWidgetMode(enable);
 });
 
-ipcMain.on('expand-window-for-menu', (event, expand) => {
+ipcMain.on('expand-window-for-menu', () => {
   if (!mainWindow || !isWidgetMode) return;
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width, height } = primaryDisplay.bounds;
 
   mainWindow.setBounds({ x: 0, y: 0, width: width, height: height });
   mainWindow.setPosition(0, 0);
-});
-
-// IPC Listener to Pass Mouse Events through Transparent Window to OS Desktop
-ipcMain.on('set-ignore-mouse-events', (event, ignore, options) => {
-  const win = BrowserWindow.fromWebContents(event.sender);
-  if (!win) return;
-  win.setIgnoreMouseEvents(ignore, options || { forward: true });
 });
 
 // IPC Listener to Lock OS Desktop Workstation Screen
@@ -153,6 +193,11 @@ app.whenReady().then(() => {
   });
 });
 
+app.on('before-quit', () => {
+  stopCursorPolling();
+});
+
 app.on('window-all-closed', () => {
+  stopCursorPolling();
   if (process.platform !== 'darwin') app.quit();
 });
