@@ -17,6 +17,9 @@ import { AudioSynth } from './services/AudioSynth';
 import { VoiceController } from './services/VoiceController';
 import type { VoiceLanguage } from './services/VoiceController';
 import { GazeRecorder } from './services/GazeRecorder';
+import { RenderDiagnostics } from './engine/RenderDiagnostics';
+import { DiagnosticsPanel } from './components/DiagnosticsPanel';
+import { CalibrationModal } from './components/CalibrationModal';
 import { Mic, SlidersHorizontal, Move } from 'lucide-react';
 
 export type EyePresetPosition = 'top_center' | 'top_left' | 'top_right' | 'bottom_left' | 'bottom_right' | 'center' | 'custom';
@@ -138,6 +141,10 @@ export function App() {
   const webcamTrackerRef = useRef(new WebcamTracker());
   const audioSynthRef = useRef(new AudioSynth());
   const voiceControllerRef = useRef<VoiceController | null>(null);
+  const renderDiagnosticsRef = useRef(new RenderDiagnostics());
+  const [debugModeOpen, setDebugModeOpen] = useState(false);
+  const [isCalibrationOpen, setIsCalibrationOpen] = useState(false);
+  const [lastCalibrationErrorPx, setLastCalibrationErrorPx] = useState<number | null>(null);
 
   // Input State & Screen Time Timers
   const mousePosRef = useRef({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
@@ -149,6 +156,7 @@ export function App() {
   const isWinkingRef = useRef(false);
   const isGlobalCursorRef = useRef(false);
   const speedRef = useRef(0);
+  const lastKnownGazeRef = useRef<{ x: number; y: number } | null>(null);
 
   // Subscribe to OS-level cursor positions streamed from the Electron main process.
   // The overlay window is permanently click-through, so DOM mouse events never fire
@@ -247,6 +255,18 @@ export function App() {
   useEffect(() => {
     audioSynthRef.current.enabled = soundEnabled;
   }, [soundEnabled]);
+
+  // Developer/Debug Mode: Ctrl+Shift+D toggles the eye-engine diagnostics panel.
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && (e.key === 'D' || e.key === 'd')) {
+        e.preventDefault();
+        setDebugModeOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Sync Particle Shape state
   useEffect(() => {
@@ -377,22 +397,44 @@ export function App() {
     const handleResize = () => {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
+      // The gaze filter's internal state is in screen-pixel space; after a resize the
+      // same filter state would represent a different relative screen position, which
+      // would otherwise show up as several frames of the smoothed gaze lagging toward
+      // the rescaled target. Resetting is a one-frame reprojection instead.
+      webcamTrackerRef.current.resetGazeFilters();
     };
     handleResize();
     window.addEventListener('resize', handleResize);
 
     const render = (time: number) => {
       const dt = Math.max(0.001, (time - lastTimeRef.current) / 1000);
+      renderDiagnosticsRef.current.recordFrame(time - lastTimeRef.current);
       lastTimeRef.current = time;
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       let targetX = mousePosRef.current.x;
       let targetY = mousePosRef.current.y;
+      let realBlinkLevel: number | undefined;
 
-      if (webcamActive && webcamTrackerRef.current.facePos.isTracking) {
-        targetX = webcamTrackerRef.current.facePos.x;
-        targetY = webcamTrackerRef.current.facePos.y;
+      if (webcamActive) {
+        if (webcamTrackerRef.current.facePos.isTracking) {
+          targetX = webcamTrackerRef.current.facePos.x;
+          targetY = webcamTrackerRef.current.facePos.y;
+          lastKnownGazeRef.current = { x: targetX, y: targetY };
+          // Real, landmark-derived eyelid closedness - see EyeOptions.realBlinkLevel.
+          realBlinkLevel = webcamTrackerRef.current.getBlinkLevel();
+        } else if (lastKnownGazeRef.current) {
+          // Tracking lost mid-session (face out of frame, brief occlusion): hold at
+          // the last known real gaze position rather than silently falling back to
+          // mousePosRef, which can be stale by minutes in webcam-only usage (e.g. the
+          // click-through Electron widget, where DOM mouse events may never fire at
+          // all - see isGlobalCursorRef). A frozen last-known position is an honest
+          // "I don't know where you're looking right now", not a misleading jump to
+          // an unrelated stale coordinate.
+          targetX = lastKnownGazeRef.current.x;
+          targetY = lastKnownGazeRef.current.y;
+        }
       }
 
       const dx = targetX - lastMousePosRef.current.x;
@@ -504,6 +546,7 @@ export function App() {
           expression,
           showEyebrows,
           musicPulseLevel: musicPulseRef.current,
+          realBlinkLevel,
         },
         dt
       );
@@ -525,6 +568,7 @@ export function App() {
           expression,
           showEyebrows,
           musicPulseLevel: musicPulseRef.current,
+          realBlinkLevel,
         });
       }
 
@@ -660,12 +704,37 @@ export function App() {
     if (webcamActive) {
       webcamTrackerRef.current.stop();
       setWebcamActive(false);
+      lastKnownGazeRef.current = null;
     } else {
       const success = await webcamTrackerRef.current.start();
-      if (success) setWebcamActive(true);
-      else alert('Webcam permission denied or unavailable.');
+      if (success) {
+        setWebcamActive(true);
+      } else {
+        // Distinguish failure reasons instead of one generic message - see
+        // WebcamTracker.start()'s status classification.
+        const status = webcamTrackerRef.current.getStatus();
+        const messages: Partial<Record<string, string>> = {
+          permission_denied: 'Camera permission was denied. Allow camera access in your browser/OS settings and try again.',
+          device_not_found: 'No camera device was found. Connect a webcam and try again.',
+          device_disconnected: 'The camera was disconnected.',
+        };
+        alert(messages[status] ?? 'Webcam initialization failed. Check the console for details.');
+      }
     }
   };
+
+  // Webcam disconnected mid-session (device unplugged, permission revoked): reflect
+  // that in the UI instead of silently leaving webcamActive stuck true forever.
+  useEffect(() => {
+    webcamTrackerRef.current.statusCallbacks = {
+      onStatusChange: (status) => {
+        if (status === 'device_disconnected' || status === 'permission_denied') {
+          setWebcamActive(false);
+          lastKnownGazeRef.current = null;
+        }
+      },
+    };
+  }, []);
 
   // Gaze Overlay Screen Recorder: records the canvas overlay (eyes + FX) to a downloadable WebM clip.
   const toggleRecording = () => {
@@ -836,6 +905,9 @@ export function App() {
         triggerSurprised={triggerSurprised}
         triggerFocused={triggerFocused}
         triggerSleepy={triggerSleepy}
+        debugModeOpen={debugModeOpen}
+        setDebugModeOpen={setDebugModeOpen}
+        openCalibration={() => setIsCalibrationOpen(true)}
       />
 
       {/* Custom Eye Studio Modal */}
@@ -853,6 +925,34 @@ export function App() {
           Gesture detected: <span className="font-bold">{lastGesture.replace('_', ' ')}</span>
         </div>
       )}
+
+      {/* Calibration Result Toast */}
+      {lastCalibrationErrorPx !== null && (
+        <div
+          className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900/95 border border-emerald-500/40 rounded-xl px-4 py-2 text-xs font-mono text-emerald-300 shadow-xl backdrop-blur-md animate-in fade-in cursor-pointer"
+          onClick={() => setLastCalibrationErrorPx(null)}
+          title="Click to dismiss"
+        >
+          Calibration applied — mean error: <span className="font-bold">{lastCalibrationErrorPx.toFixed(0)}px</span>
+        </div>
+      )}
+
+      {/* Eye Engine Diagnostics / Developer Debug Mode - toggle with Ctrl+Shift+D or from Studio Controls */}
+      <DiagnosticsPanel
+        isOpen={debugModeOpen}
+        onClose={() => setDebugModeOpen(false)}
+        renderDiagnostics={renderDiagnosticsRef.current}
+        webcamTracker={webcamTrackerRef.current}
+        webcamActive={webcamActive}
+      />
+
+      {/* Multi-point gaze calibration - only meaningful while webcam tracking is active */}
+      <CalibrationModal
+        isOpen={isCalibrationOpen}
+        onClose={() => setIsCalibrationOpen(false)}
+        webcamTracker={webcamTrackerRef.current}
+        onComplete={(meanErrorPx) => setLastCalibrationErrorPx(meanErrorPx)}
+      />
 
       {/* Eye Rest Break Safety Lock Modal */}
       <EyeBreakModal

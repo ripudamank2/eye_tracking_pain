@@ -53,6 +53,13 @@ export interface EyeOptions {
   showEyebrows?: boolean;
   // Music Reactive Pupil Pulse: 0..1 bass-band level, applied as an extra pupil-scale multiplier.
   musicPulseLevel?: number;
+  // Real, landmark-derived eyelid closedness (0 open..1 closed) from WebcamTracker's
+  // GazeProcessor. When provided, this replaces the synthetic timer-driven blink
+  // animation below so the rendered eyelid actually follows the tracked user's real
+  // blinks instead of an unrelated procedural animation. Omit (mouse-only mode, no
+  // camera) to keep the original synthetic blink, which is still needed there since
+  // there's no real eyelid signal to follow.
+  realBlinkLevel?: number;
 }
 
 export class EyeEngine {
@@ -108,14 +115,22 @@ export class EyeEngine {
     }
 
     // --- Organic Natural Blinking Logic ---
-    this.blinkTimer += dt;
+    // Only advances the synthetic timer when there's no real tracked blink signal to
+    // follow instead (see EyeOptions.realBlinkLevel). Letting this keep running in the
+    // background while webcam tracking is active would accumulate a large blinkTimer
+    // that fires a jarring "catch-up" synthetic blink the moment tracking drops.
+    const hasRealBlinkSignal = options.realBlinkLevel !== undefined;
 
-    if (!this.isBlinking && this.blinkTimer >= this.nextBlinkInterval) {
-      this.isBlinking = true;
-      this.blinkElapsed = 0;
-      this.blinkTimer = 0;
-      this.isDoubleBlinking = Math.random() < 0.2;
-      this.nextBlinkInterval = 2.5 + Math.random() * 2.3;
+    if (!hasRealBlinkSignal) {
+      this.blinkTimer += dt;
+
+      if (!this.isBlinking && this.blinkTimer >= this.nextBlinkInterval) {
+        this.isBlinking = true;
+        this.blinkElapsed = 0;
+        this.blinkTimer = 0;
+        this.isDoubleBlinking = Math.random() < 0.2;
+        this.nextBlinkInterval = 2.5 + Math.random() * 2.3;
+      }
     }
 
     if (this.isBlinking) {
@@ -167,7 +182,7 @@ export class EyeEngine {
     // Happy squint: eyelids curve up into a `^ ^` arc instead of tracking blink state.
     const isHappySquint = expression === 'happy';
 
-    let eyelidLevel = this.blinkProgress;
+    let eyelidLevel = options.realBlinkLevel ?? this.blinkProgress;
     if (options.isIdle) eyelidLevel = Math.max(eyelidLevel, 0.55);
     if (options.isWinking) eyelidLevel = 1.0;
     if (options.isCrying) eyelidLevel = Math.max(eyelidLevel, 0.7);

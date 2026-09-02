@@ -55,6 +55,9 @@ interface ContextMenuProps {
   triggerSurprised: () => void;
   triggerFocused: () => void;
   triggerSleepy: () => void;
+  debugModeOpen: boolean;
+  setDebugModeOpen: (val: boolean) => void;
+  openCalibration: () => void;
 }
 
 export const ContextMenu: React.FC<ContextMenuProps> = ({
@@ -108,6 +111,9 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   triggerSurprised,
   triggerFocused,
   triggerSleepy,
+  debugModeOpen,
+  setDebugModeOpen,
+  openCalibration,
 }) => {
   if (!isOpen) return null;
 
@@ -252,6 +258,34 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
                 <span>AI Camera Eye Tracking</span>
               </div>
               <span className="text-[10px] uppercase font-bold">{webcamActive ? 'ON' : 'OFF'}</span>
+            </button>
+
+            {webcamActive && (
+              <button
+                onClick={openCalibration}
+                className="w-full py-2 px-3 rounded-xl font-mono flex items-center justify-between transition-all cursor-pointer bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60"
+              >
+                <div className="flex items-center gap-2">
+                  <Target className="w-4 h-4" />
+                  <span>Calibrate Gaze (5-point)</span>
+                </div>
+              </button>
+            )}
+
+            <button
+              onClick={() => setDebugModeOpen(!debugModeOpen)}
+              className={`w-full py-2 px-3 rounded-xl font-mono flex items-center justify-between transition-all cursor-pointer ${
+                debugModeOpen
+                  ? 'bg-lime-500 text-slate-950 font-bold shadow-md shadow-lime-500/20'
+                  : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60'
+              }`}
+              title="Ctrl+Shift+D"
+            >
+              <div className="flex items-center gap-2">
+                <Activity className="w-4 h-4" />
+                <span>Eye Engine Diagnostics</span>
+              </div>
+              <span className="text-[10px] uppercase font-bold">{debugModeOpen ? 'ON' : 'OFF'}</span>
             </button>
 
             <button

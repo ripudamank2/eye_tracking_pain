@@ -1,4 +1,18 @@
-// High-Precision AI Iris & Pupil Gaze Tracker powered by Google MediaPipe Face Mesh
+// Webcam + MediaPipe hardware adapter. Owns getUserMedia, the MediaPipe FaceMesh/Camera
+// lifecycle, and DOM video element - all the browser/hardware side effects that make this
+// class impossible to unit-test directly. The actual gaze math lives in GazeProcessor
+// (pure, unit-tested); this class's job is just to get real landmarks into it and real
+// results out to the renderer.
+
+import {
+  GazeProcessor,
+  computeEyeAperture,
+  computeCalibration,
+  LANDMARK,
+  type Landmark,
+  type CalibrationPoint,
+  type EyeApertureResult,
+} from '../engine/GazeProcessor';
 
 export interface FacePosition {
   x: number;
@@ -19,6 +33,33 @@ export interface GestureCallbacks {
   onGesture?: (gesture: CameraGesture) => void;
 }
 
+export type TrackerStatus =
+  | 'idle'
+  | 'starting'
+  | 'tracking'
+  | 'face_lost'
+  | 'permission_denied'
+  | 'device_not_found'
+  | 'device_disconnected'
+  | 'error';
+
+export interface StatusCallbacks {
+  onStatusChange?: (status: TrackerStatus, detail?: string) => void;
+}
+
+export interface TrackerDiagnostics {
+  status: TrackerStatus;
+  fps: number;
+  frameTimeMs: number;
+  droppedFrames: number;
+  trackingConfidence: number;
+  faceDetectionLossCount: number;
+  gazeJitterPx: number;
+  gazeLatencyMs: number;
+  calibrationErrorPx: number;
+  framesHeldForBlink: number;
+}
+
 // Dynamically load MediaPipe CDN scripts to prevent Vite CJS bundling errors
 function loadScript(src: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -35,12 +76,18 @@ function loadScript(src: string): Promise<void> {
   });
 }
 
+const FACE_LOSS_GRACE_MS = 400; // brief occlusions (a hand passing, fast head turn) shouldn't flip status
+const FRAME_HISTORY_SIZE = 60;
+
 export class WebcamTracker {
   private videoElement: HTMLVideoElement | null = null;
   private camera: any = null; // eslint-disable-line @typescript-eslint/no-explicit-any
   private faceMesh: any = null; // eslint-disable-line @typescript-eslint/no-explicit-any
   private stream: MediaStream | null = null;
   private isRunning = false;
+
+  private gazeProcessor = new GazeProcessor();
+  private referenceEyeSpan = 0.1;
 
   public facePos: FacePosition = {
     x: window.innerWidth / 2,
@@ -50,23 +97,9 @@ export class WebcamTracker {
     rawY: 240,
   };
 
-  // Tracking sensitivity multiplier (default: 4.0x)
-  public sensitivity = 4.0;
-
-  // Neutral Iris Baseline Calibration
-  private baselineIrisX = 0.5;
-  private baselineIrisY = 0.5;
-  private isCalibrated = false;
-  private calibrationFrames = 0;
-
-  // Smoothed Screen Position
-  private targetX = window.innerWidth / 2;
-  private targetY = window.innerHeight / 2;
-  private currentX = window.innerWidth / 2;
-  private currentY = window.innerHeight / 2;
-
   // AI Camera Gestures
   public gestureCallbacks: GestureCallbacks = {};
+  public statusCallbacks: StatusCallbacks = {};
   private noseXHistory: number[] = [];
   private noseYHistory: number[] = [];
   private lastGestureTime = 0;
@@ -75,12 +108,53 @@ export class WebcamTracker {
   private isWinkingLeft = false;
   private isWinkingRight = false;
 
+  // Status / recovery tracking
+  private status: TrackerStatus = 'idle';
+  private lastFaceSeenAt = 0;
+  private faceDetectionLossCount = 0;
+
+  // Diagnostics
+  private frameTimestamps: number[] = [];
+  private droppedFrames = 0;
+  private lastFrameTime = 0;
+  private lastAperture: EyeApertureResult | null = null;
+  private lastRawOffset: { offsetX: number; offsetY: number } | null = null;
+  private lastConfidence = 0;
+  private lastGazeLatencyMs = 0;
+
   public async start(): Promise<boolean> {
+    this.setStatus('starting');
+
     try {
       this.stream = await navigator.mediaDevices.getUserMedia({
         video: { width: 640, height: 480, facingMode: 'user' },
       });
+    } catch (err) {
+      // Distinguish failure modes so the UI (and diagnostics) can tell the user
+      // something actionable instead of a generic "unavailable" - the previous
+      // implementation collapsed all getUserMedia failures into one bare alert().
+      const name = err instanceof DOMException ? err.name : '';
+      if (name === 'NotAllowedError' || name === 'SecurityError') {
+        this.setStatus('permission_denied', 'Camera permission was denied.');
+      } else if (name === 'NotFoundError' || name === 'OverconstrainedError') {
+        this.setStatus('device_not_found', 'No camera device was found.');
+      } else {
+        this.setStatus('error', err instanceof Error ? err.message : String(err));
+      }
+      return false;
+    }
 
+    // Detect the OS/browser revoking the camera mid-session (device unplugged,
+    // another app took exclusive access, permission revoked after grant). Without
+    // this listener the previous implementation had no way to notice - the UI would
+    // keep showing "tracking active" indefinitely with a frozen last-known position.
+    const videoTrack = this.stream.getVideoTracks()[0];
+    videoTrack?.addEventListener('ended', () => {
+      this.setStatus('device_disconnected', 'Camera was disconnected.');
+      this.stop();
+    });
+
+    try {
       this.videoElement = document.createElement('video');
       this.videoElement.srcObject = this.stream;
       this.videoElement.width = 640;
@@ -101,53 +175,104 @@ export class WebcamTracker {
       const FaceMeshConstructor = win.FaceMesh;
       const CameraConstructor = win.Camera;
 
-      // Initialize MediaPipe Face Mesh Engine
-      if (FaceMeshConstructor) {
-        this.faceMesh = new FaceMeshConstructor({
-          locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
-        });
-
-        this.faceMesh.setOptions({
-          maxNumFaces: 1,
-          refineLandmarks: true, // Enables sub-pixel Iris Pupil tracking (landmarks 468-477)
-          minDetectionConfidence: 0.5,
-          minTrackingConfidence: 0.5,
-        });
-
-        this.faceMesh.onResults((results: any) => this.handleFaceMeshResults(results)); // eslint-disable-line @typescript-eslint/no-explicit-any
+      if (!FaceMeshConstructor || !CameraConstructor) {
+        this.setStatus('error', 'MediaPipe failed to load.');
+        this.stop();
+        return false;
       }
 
-      // Start Camera Processing Loop
-      if (CameraConstructor && this.videoElement) {
-        this.camera = new CameraConstructor(this.videoElement, {
-          onFrame: async () => {
-            if (this.isRunning && this.videoElement && this.faceMesh) {
-              await this.faceMesh.send({ image: this.videoElement });
-            }
-          },
-          width: 640,
-          height: 480,
-        });
-        await this.camera.start();
-      }
+      this.faceMesh = new FaceMeshConstructor({
+        locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
+      });
+
+      this.faceMesh.setOptions({
+        maxNumFaces: 1,
+        refineLandmarks: true, // Enables sub-pixel Iris Pupil tracking (landmarks 468-477)
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5,
+      });
+
+      this.faceMesh.onResults((results: any) => this.handleFaceMeshResults(results)); // eslint-disable-line @typescript-eslint/no-explicit-any
+
+      this.camera = new CameraConstructor(this.videoElement, {
+        onFrame: async () => {
+          if (this.isRunning && this.videoElement && this.faceMesh) {
+            const frameStart = performance.now();
+            await this.faceMesh.send({ image: this.videoElement });
+            this.recordFrame(frameStart);
+          }
+        },
+        width: 640,
+        height: 480,
+      });
+      await this.camera.start();
 
       this.isRunning = true;
       return true;
     } catch (err) {
-      console.warn('MediaPipe Webcam Tracker initialization error:', err);
+      this.setStatus('error', err instanceof Error ? err.message : String(err));
+      this.stop();
       return false;
     }
   }
 
+  /**
+   * Re-baselines the "neutral center" gaze offset. Previously this only ever ran once
+   * at start() with no way for the user to trigger it again mid-session - if the
+   * initial 15 frames caught a bad pose, or the user shifted position, the whole
+   * session's accuracy was permanently off. Exposed publicly so the UI can offer a
+   * "Recalibrate" action.
+   */
   public recalibrate() {
-    this.isCalibrated = false;
-    this.calibrationFrames = 0;
-    this.currentX = window.innerWidth / 2;
-    this.currentY = window.innerHeight / 2;
+    this.gazeProcessor.resetBaseline();
+    this.gazeProcessor.resetFilters();
+    this.referenceEyeSpan = 0.1;
+    this.hasCapturedReferenceEyeSpan = false;
+  }
+
+  /**
+   * Resets only the smoothing filter's internal state (screen-pixel space), without
+   * touching calibration or the neutral-gaze baseline. Call this after a window
+   * resize so the filter reprojects in one frame instead of visibly lagging toward
+   * the newly-scaled target for several frames.
+   */
+  public resetGazeFilters() {
+    this.gazeProcessor.resetFilters();
+  }
+
+  private hasCapturedReferenceEyeSpan = false;
+
+  /**
+   * Runs full multi-point calibration from a set of (screen target, observed gaze
+   * offset) pairs. The caller is responsible for prompting the user to look at each
+   * target and recording `getCurrentRawOffset()` at that moment - see
+   * useEyeCalibration in App.tsx for the UI flow.
+   */
+  public applyCalibration(points: CalibrationPoint[], screenWidth: number, screenHeight: number) {
+    const result = computeCalibration(points, screenWidth, screenHeight);
+    this.gazeProcessor.setCalibration(result);
+    return result;
+  }
+
+  public getCalibrationError(): number {
+    return this.gazeProcessor.getCalibration().meanError;
+  }
+
+  /** User-facing manual gaze sensitivity multiplier (applied on top of calibration). */
+  public get sensitivity(): number {
+    return this.gazeProcessor.manualGainMultiplier;
+  }
+
+  public set sensitivity(value: number) {
+    this.gazeProcessor.manualGainMultiplier = value;
   }
 
   public getStream(): MediaStream | null {
     return this.stream;
+  }
+
+  public getStatus(): TrackerStatus {
+    return this.status;
   }
 
   public stop() {
@@ -165,6 +290,55 @@ export class WebcamTracker {
       this.faceMesh = null;
     }
     this.facePos.isTracking = false;
+
+    // Reset gesture-detection history so a stopped-then-restarted session (the
+    // WebcamTracker instance is reused, not recreated) doesn't carry over stale nose
+    // position history that could immediately fire a false gesture.
+    this.noseXHistory = [];
+    this.noseYHistory = [];
+    this.isSmiling = false;
+    this.isWinkingLeft = false;
+    this.isWinkingRight = false;
+    this.frameTimestamps = [];
+    this.droppedFrames = 0;
+
+    if (this.status !== 'permission_denied' && this.status !== 'device_not_found' && this.status !== 'device_disconnected') {
+      this.setStatus('idle');
+    }
+  }
+
+  private setStatus(status: TrackerStatus, detail?: string) {
+    if (this.status === status) return;
+    this.status = status;
+    this.statusCallbacks.onStatusChange?.(status, detail);
+  }
+
+  private recordFrame(frameStartTime: number) {
+    const now = performance.now();
+    if (this.lastFrameTime > 0) {
+      const gap = now - this.lastFrameTime;
+      // A gap much larger than a single frame at a reasonable minimum rate (10fps)
+      // means the pipeline stalled - count it as dropped frame(s) rather than
+      // silently absorbing it into the FPS average.
+      if (gap > 100) {
+        this.droppedFrames += Math.floor(gap / 100) - 1;
+      }
+    }
+    this.lastFrameTime = now;
+    this.lastGazeLatencyMs = now - frameStartTime;
+
+    this.frameTimestamps.push(now);
+    if (this.frameTimestamps.length > FRAME_HISTORY_SIZE) this.frameTimestamps.shift();
+
+    // Face-loss detection with a short grace window: a single dropped detection
+    // (motion blur, brief occlusion) shouldn't immediately flip the UI to "lost" and
+    // fall back to a stale mouse position - only a sustained loss should.
+    if (this.facePos.isTracking) {
+      this.lastFaceSeenAt = now;
+    } else if (this.status === 'tracking' && now - this.lastFaceSeenAt > FACE_LOSS_GRACE_MS) {
+      this.faceDetectionLossCount++;
+      this.setStatus('face_lost');
+    }
   }
 
   private handleFaceMeshResults(results: { multiFaceLandmarks?: { x: number; y: number; z?: number }[][] }) {
@@ -175,57 +349,45 @@ export class WebcamTracker {
 
     const landmarks = results.multiFaceLandmarks[0];
 
-    // Landmark 468 = Left Iris Center, Landmark 473 = Right Iris Center
-    const leftIris = landmarks[468] || landmarks[469] || landmarks[33];
-    const rightIris = landmarks[473] || landmarks[474] || landmarks[263];
-    const noseTip = landmarks[1] || landmarks[4];
+    const leftIris: Landmark = landmarks[LANDMARK.IRIS_LEFT] || landmarks[469] || landmarks[LANDMARK.EYE_LEFT_OUTER];
+    const rightIris: Landmark = landmarks[LANDMARK.IRIS_RIGHT] || landmarks[474] || landmarks[LANDMARK.EYE_RIGHT_OUTER];
+    const noseTip: Landmark = landmarks[LANDMARK.NOSE_TIP] || landmarks[4];
 
-    // Combined Iris Gaze Center (normalized 0.0 to 1.0)
-    const irisAvgX = (leftIris.x + rightIris.x) / 2;
-    const irisAvgY = (leftIris.y + rightIris.y) / 2;
+    const eyeSpan = Math.abs(rightIris.x - leftIris.x) || 0.1;
 
-    // Auto-calibrate neutral eye resting position (first 15 frames)
-    if (!this.isCalibrated) {
-      this.baselineIrisX = (this.baselineIrisX * this.calibrationFrames + irisAvgX) / (this.calibrationFrames + 1);
-      this.baselineIrisY = (this.baselineIrisY * this.calibrationFrames + irisAvgY) / (this.calibrationFrames + 1);
-      this.calibrationFrames++;
-      if (this.calibrationFrames >= 15) {
-        this.isCalibrated = true;
-      }
+    // Capture a reference distance on the first good frame after (re)calibration, so
+    // later distance compensation has a "what distance was calibration done at"
+    // baseline. Previously there was no distance compensation at all.
+    if (!this.hasCapturedReferenceEyeSpan) {
+      this.referenceEyeSpan = eyeSpan;
+      this.hasCapturedReferenceEyeSpan = true;
     }
 
-    // Gaze offset from baseline neutral center
-    const gazeDeltaX = -(irisAvgX - this.baselineIrisX);
-    const gazeDeltaY = irisAvgY - this.baselineIrisY;
+    const aperture = computeEyeAperture(landmarks, eyeSpan);
+    this.lastAperture = aperture;
 
-    // Head orientation compensation using Nose Tip vs Eye Span
-    const eyeSpan = Math.abs(rightIris.x - leftIris.x) || 0.1;
-    const headYawOffset = (noseTip.x - (leftIris.x + rightIris.x) / 2) / eyeSpan;
+    const dt = this.frameTimestamps.length >= 2 ? (performance.now() - this.frameTimestamps[this.frameTimestamps.length - 1]) / 1000 : 1 / 30;
 
-    // Combine Iris Pupil movement + Head orientation vector
-    const totalGazeX = gazeDeltaX + headYawOffset * 0.15;
-    const totalGazeY = gazeDeltaY;
+    const gazeResult = this.gazeProcessor.process({
+      leftIris,
+      rightIris,
+      noseTip,
+      eyeSpan,
+      referenceEyeSpan: this.referenceEyeSpan,
+      aperture,
+      screenWidth: window.innerWidth,
+      screenHeight: window.innerHeight,
+      dt: Math.max(1 / 120, Math.min(1 / 5, dt)),
+    });
 
-    const screenCenterX = window.innerWidth / 2;
-    const screenCenterY = window.innerHeight / 2;
-
-    // Map to screen dimensions with sensitivity multiplier
-    this.targetX = screenCenterX + totalGazeX * screenCenterX * this.sensitivity;
-    this.targetY = screenCenterY + totalGazeY * screenCenterY * (this.sensitivity * 1.2);
-
-    // Clamp to screen bounds
-    this.targetX = Math.max(40, Math.min(window.innerWidth - 40, this.targetX));
-    this.targetY = Math.max(40, Math.min(window.innerHeight - 40, this.targetY));
-
-    // Smooth LERP interpolation (alpha = 0.2) for fast 60 FPS pupil response
-    this.currentX += (this.targetX - this.currentX) * 0.2;
-    this.currentY += (this.targetY - this.currentY) * 0.2;
+    this.lastConfidence = gazeResult.confidence;
+    this.lastRawOffset = { offsetX: gazeResult.rawOffsetX, offsetY: gazeResult.rawOffsetY };
 
     this.facePos = {
-      x: this.currentX,
-      y: this.currentY,
-      rawX: (1.0 - irisAvgX) * 640,
-      rawY: irisAvgY * 480,
+      x: gazeResult.x,
+      y: gazeResult.y,
+      rawX: (1.0 - (leftIris.x + rightIris.x) / 2) * 640,
+      rawY: ((leftIris.y + rightIris.y) / 2) * 480,
       irisLeftX: leftIris.x * 640,
       irisLeftY: leftIris.y * 480,
       irisRightX: rightIris.x * 640,
@@ -233,7 +395,47 @@ export class WebcamTracker {
       isTracking: true,
     };
 
-    this.detectGestures(landmarks, noseTip, eyeSpan);
+    if (this.status !== 'tracking') this.setStatus('tracking');
+
+    this.detectGestures(landmarks, noseTip, eyeSpan, aperture);
+  }
+
+  /** Real, landmark-derived blink level (0 open .. 1 closed) for the renderer's eyelids to follow. */
+  public getBlinkLevel(): number {
+    return this.lastAperture?.blinkLevel ?? 0;
+  }
+
+  /**
+   * Snapshot of the most recent frame's raw (uncalibrated) gaze offset, for a
+   * calibration UI to sample while the user looks at a known on-screen target - see
+   * CalibrationModal.tsx. Returns null if no tracked frame has arrived yet.
+   */
+  public sampleRawOffset(): { offsetX: number; offsetY: number } | null {
+    return this.lastRawOffset;
+  }
+
+  public getDiagnostics(): TrackerDiagnostics {
+    const n = this.frameTimestamps.length;
+    let fps = 0;
+    if (n >= 2) {
+      const spanMs = this.frameTimestamps[n - 1] - this.frameTimestamps[0];
+      fps = spanMs > 0 ? ((n - 1) * 1000) / spanMs : 0;
+    }
+    const frameTimeMs = fps > 0 ? 1000 / fps : 0;
+    const processorDiagnostics = this.gazeProcessor.getDiagnostics();
+
+    return {
+      status: this.status,
+      fps: Math.round(fps * 10) / 10,
+      frameTimeMs: Math.round(frameTimeMs * 10) / 10,
+      droppedFrames: this.droppedFrames,
+      trackingConfidence: this.lastConfidence,
+      faceDetectionLossCount: this.faceDetectionLossCount,
+      gazeJitterPx: Math.round(processorDiagnostics.filteredJitter * 10) / 10,
+      gazeLatencyMs: Math.round(this.lastGazeLatencyMs * 10) / 10,
+      calibrationErrorPx: processorDiagnostics.calibrationError,
+      framesHeldForBlink: processorDiagnostics.framesHeldForBlink,
+    };
   }
 
   // AI Camera Gestures: head nod (confirm), head shake (cancel), smile (heart particles),
@@ -241,7 +443,8 @@ export class WebcamTracker {
   private detectGestures(
     landmarks: { x: number; y: number; z?: number }[],
     noseTip: { x: number; y: number },
-    eyeSpan: number
+    eyeSpan: number,
+    aperture: EyeApertureResult | null
   ) {
     const now = Date.now();
 
@@ -255,7 +458,6 @@ export class WebcamTracker {
       const xRange = Math.max(...this.noseXHistory) - Math.min(...this.noseXHistory);
       const yRange = Math.max(...this.noseYHistory) - Math.min(...this.noseYHistory);
 
-      // Thresholds are normalized-coordinate deltas (face mesh space is 0..1).
       if (yRange > 0.035 && yRange > xRange * 1.4) {
         this.lastGestureTime = now;
         this.noseYHistory = [];
@@ -285,28 +487,26 @@ export class WebcamTracker {
       this.isSmiling = nowSmiling;
     }
 
-    // --- Winks: per-eye vertical aperture (top/bottom lid landmarks) ---
-    const leftTop = landmarks[159];
-    const leftBottom = landmarks[145];
-    const rightTop = landmarks[386];
-    const rightBottom = landmarks[374];
+    // --- Winks: reuse the same per-eye aperture GazeProcessor already computed for
+    // blink-gating, so wink/blink classification and eyelid rendering can never
+    // disagree with each other (previously these were three independent readings
+    // of eye-openness: one for gaze gating [nonexistent], one for gestures, one
+    // purely synthetic for rendering).
+    if (aperture && !aperture.isBlinking) {
+      const leftClosed = aperture.leftAperture < 0.12;
+      const rightClosed = aperture.rightAperture < 0.12;
 
-    if (leftTop && leftBottom && rightTop && rightBottom) {
-      const leftAperture = Math.abs(leftBottom.y - leftTop.y) / (eyeSpan || 0.1);
-      const rightAperture = Math.abs(rightBottom.y - rightTop.y) / (eyeSpan || 0.1);
-
-      const leftClosed = leftAperture < 0.12;
-      const rightClosed = rightAperture < 0.12;
-
-      // A wink is one eye closed while the other stays clearly open (excludes a full blink).
-      if (leftClosed && !rightClosed && rightAperture > 0.2 && !this.isWinkingLeft) {
+      if (leftClosed && !rightClosed && aperture.rightAperture > 0.2 && !this.isWinkingLeft) {
         this.gestureCallbacks.onGesture?.('wink_left');
       }
-      if (rightClosed && !leftClosed && leftAperture > 0.2 && !this.isWinkingRight) {
+      if (rightClosed && !leftClosed && aperture.leftAperture > 0.2 && !this.isWinkingRight) {
         this.gestureCallbacks.onGesture?.('wink_right');
       }
       this.isWinkingLeft = leftClosed && !rightClosed;
       this.isWinkingRight = rightClosed && !leftClosed;
+    } else {
+      this.isWinkingLeft = false;
+      this.isWinkingRight = false;
     }
   }
 }
