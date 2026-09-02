@@ -66,53 +66,57 @@ Eye Tracker Studio turns your cursor and camera into a high-performance 60 FPS i
 
 ## 🔮 Master Feature & AI Roadmap
 
+See [PROJECT_STATUS.md](PROJECT_STATUS.md) for the detailed status of every item below,
+[ROADMAP.md](ROADMAP.md) for what's blocked and why, and [KNOWN_ISSUES.md](KNOWN_ISSUES.md)
+for caveats on a few "done" items that ship an honest, smaller version of what's described.
+
 ### 🤖 Multimodal Vision AI ("What Are You Looking At?")
-- [ ] **AI Gaze Scene Explainer:** Hold your gaze on any code block, image, or chart on screen to get an instant AI vision summary!
-- [ ] **AI Reading Assistant:** Highlights and defines complex terms as your gaze scans text.
+- [ ] **AI Gaze Scene Explainer:** Hold your gaze on any code block, image, or chart on screen to get an instant AI vision summary! *(blocked — needs a hosted vision-LLM API, see ROADMAP.md)*
+- [ ] **AI Reading Assistant:** Highlights and defines complex terms as your gaze scans text. *(blocked — same dependency, see ROADMAP.md)*
 
 ### 💖 Cute Emotion & Expression Engine
 - [x] **😭 Crying Eyes & Eye Strain Safety Lock:** Eyes stream animated tear drops, trigger AI speech alert, and lock screen for 2-minute eye rest.
-- [ ] **Happy / Smiling Eyes (`^ ^`):** Eyes squint into cute curved arcs when clicking or moving in circles.
-- [ ] **Love / Heart Pupil Mode (`💖`):** Pupils morph into glowing pulsing hearts on double-click or webcam eye contact.
-- [ ] **Animated Eyebrows:** Expressive mini eyebrows for surprised, focused, and sleepy moods.
-- [ ] **Gaze Eye-Contact Reaction:** Eyes blush and smile back when AI camera detects direct eye contact!
+- [x] **Happy / Smiling Eyes (`^ ^`):** Eyes squint into cute curved arcs when clicking or moving in circles.
+- [x] **Love / Heart Pupil Mode (`💖`):** Pupils morph into glowing pulsing hearts on double-click or webcam eye contact.
+- [x] **Animated Eyebrows:** Expressive mini eyebrows for surprised, focused, and sleepy moods.
+- [ ] **Gaze Eye-Contact Reaction:** Eyes blush and smile back when AI camera detects direct eye contact! *(partial — smile detection triggers Love mode; a distinct sustained-eye-contact detector wasn't built separately, see ROADMAP.md)*
 
 ### 🎨 Creative Eye Themes & Custom Designer
-- [ ] **Anime Heart Eyes:** Pulsing pink heart pupils with star catchlights.
-- [ ] **Dragon / Reptile Eyes:** Glowing golden scales with dynamic pupil slits.
-- [ ] **Cosmic Galaxy Eyes:** Rotating spiral galaxy iris with floating stardust.
-- [ ] **Matrix Code Rain Eyes:** Falling green matrix numbers inside the pupil.
-- [ ] **Fiery Flame Eyes:** Animated flickering flame aura around the iris.
-- [ ] **In-App Custom Eye Studio:** Customizer modal to tweak pupil color, iris gradient, and glow intensity.
+- [x] **Anime Heart Eyes:** Pulsing pink heart pupils with star catchlights.
+- [x] **Dragon / Reptile Eyes:** Glowing golden scales with dynamic pupil slits.
+- [x] **Cosmic Galaxy Eyes:** Rotating spiral galaxy iris with floating stardust.
+- [x] **Matrix Code Rain Eyes:** Falling green matrix numbers inside the pupil.
+- [x] **Fiery Flame Eyes:** Animated flickering flame aura around the iris.
+- [x] **In-App Custom Eye Studio:** Customizer modal to tweak pupil color, iris gradient, and glow intensity.
 
 ### 🎵 Musical Eye Theremin & Audio Visualizer
-- [ ] **Musical Eye Theremin:** Play musical notes with your gaze (X-axis controls pitch, Y-axis controls vibrato).
-- [ ] **Music Reactive Pupil Pulse:** Pupils pulse dynamically to the bassline of playing music!
+- [x] **Musical Eye Theremin:** Play musical notes with your gaze (X-axis controls pitch, Y-axis controls vibrato).
+- [x] **Music Reactive Pupil Pulse:** Pupils pulse dynamically to the bassline of playing music!
 
 ### 🌈 Mood-Adaptive Trails & Black Hole Physics
-- [ ] **Speed-Adaptive Particle Trails:** Trail colors shift from cyan to fiery orange based on cursor speed.
-- [ ] **Gravity Well Black Hole FX:** Click creates a mini black hole pulling screen particles inward!
+- [x] **Speed-Adaptive Particle Trails:** Trail colors shift from cyan to fiery orange based on cursor speed.
+- [x] **Gravity Well Black Hole FX:** Click creates a mini black hole pulling screen particles inward!
 
 ### 📸 Gaze Screen Recorder & Multilingual Voice
-- [ ] **Gaze Overlay GIF/MP4 Recorder:** Record quick screen clips with animated eyes overlay for Twitter/Discord.
-- [ ] **Multilingual Voice Commands:** Support voice commands in English, Spanish, Japanese, French, German, and Hindi!
+- [x] **Gaze Overlay Screen Recorder:** Record quick screen clips with animated eyes overlay. *(exports WebM, not GIF/MP4 yet — see KNOWN_ISSUES.md)*
+- [x] **Multilingual Voice Commands:** Support voice commands in English, Spanish, Japanese, French, German, and Hindi!
 
 ### 🧠 Emotion AI & Mood Synchronization
-- [ ] **AI Mood & Facial Expression Sync:** Real-time facial sentiment analysis via webcam so the eyes mirror your exact mood (*Happy, Surprised, Confused, Focused, Tired*).
+- [ ] **AI Mood & Facial Expression Sync:** Real-time facial sentiment analysis via webcam so the eyes mirror your exact mood (*Happy, Surprised, Confused, Focused, Tired*). *(partial — heuristic gesture detection ships now; full sentiment classification needs a trained model, see ROADMAP.md)*
 - [ ] **AI Drowsiness & Yawn Safety Guard:** Detects eye strain, frequent blinks, or yawns to suggest 20-second eye relaxation breaks.
 
 ### 🎯 AI Intent Pointer & Smart Gestures
-- [ ] **AI Target Snap-to-Button:** Predicts intended click targets from gaze velocity and snaps the reticle smoothly to buttons.
-- [ ] **AI Camera Gestures:** Head Nod (Confirm), Head Shake (Cancel), Smile (Heart particles), Left/Right Winks.
+- [ ] **AI Target Snap-to-Button:** Predicts intended click targets from gaze velocity and snaps the reticle smoothly to buttons. *(blocked — needs OS accessibility-tree access, see ROADMAP.md)*
+- [x] **AI Camera Gestures:** Head Nod (Confirm), Head Shake (Cancel), Smile (Heart particles), Left/Right Winks.
 
 ### 🧠 Subconscious Pupillometry & Attention Analysis
-- [ ] **Cognitive Load & Focus Heatmap:** Real-time pupil dilation analysis to map high-focus zones vs fatigue areas on screen.
-- [ ] **Reading Speed & Dyslexia Assistance:** Auto-scrolls documents smoothly matching your eye reading speed.
+- [x] **Cognitive Load & Focus Heatmap:** Maps high-focus zones from gaze dwell time. *(dwell-time proxy, not true pupil-dilation pupillometry — see KNOWN_ISSUES.md)*
+- [ ] **Reading Speed & Dyslexia Assistance:** Auto-scrolls documents smoothly matching your eye reading speed. *(blocked — needs OS accessibility-tree or browser-extension-level DOM access, see ROADMAP.md)*
 
 ### 🔮 5-Year Vision Horizon (2031 Frontier)
-- [ ] **Spatial 3D Holographic Eyes (AR/VR Ready):** Full WebXR 3D eye avatar projection into Apple Vision Pro & Meta Quest.
-- [ ] **Brain-Computer Interface (BCI) Hybrid:** Neural-gaze hybrid intent recognition for ultra-fast zero-latency control.
-- [ ] **Autonomous AI Screen Companion:** Animated eye companion that watches your screen, provides contextual code refactoring tips, and interacts conversationally!
+- [ ] **Spatial 3D Holographic Eyes (AR/VR Ready):** Full WebXR 3D eye avatar projection into Apple Vision Pro & Meta Quest. *(blocked — needs AR/VR hardware, see ROADMAP.md)*
+- [ ] **Brain-Computer Interface (BCI) Hybrid:** Neural-gaze hybrid intent recognition for ultra-fast zero-latency control. *(blocked — needs BCI hardware + vendor SDK, see ROADMAP.md)*
+- [ ] **Autonomous AI Screen Companion:** Animated eye companion that watches your screen, provides contextual code refactoring tips, and interacts conversationally! *(future research — open-ended agent scope, see ROADMAP.md)*
 
 ---
 
