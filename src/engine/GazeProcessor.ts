@@ -230,6 +230,52 @@ export function computeEyeAperture(landmarks: Landmark[], eyeSpan: number): EyeA
   };
 }
 
+export interface TopologyValidationResult {
+  valid: boolean;
+  reason?: string;
+}
+
+const EXPECTED_LANDMARK_COUNT = 478;
+
+/**
+ * Runtime check that a landmark array actually has the topology this pipeline depends
+ * on (478 points - canonical 468-point mesh + iris refinement - with finite coordinates
+ * at every index this pipeline reads). Added when the inference backend was migrated
+ * from the legacy @mediapipe/face_mesh library to @mediapipe/tasks-vision's
+ * FaceLandmarker (see docs/LANDMARK_MAPPING.md): a silent topology mismatch between
+ * backends would otherwise show up only as subtly wrong gaze tracking, never a
+ * reportable error. Exported as a pure function (rather than embedded in
+ * WebcamTracker) specifically so it's unit-testable against synthetic fixtures without
+ * needing a real inference backend to produce a bad result to test against.
+ */
+export function validateLandmarkTopology(landmarks: Landmark[]): TopologyValidationResult {
+  if (landmarks.length < EXPECTED_LANDMARK_COUNT) {
+    return {
+      valid: false,
+      reason: `Expected ${EXPECTED_LANDMARK_COUNT} landmarks (canonical mesh + iris refinement), got ${landmarks.length}.`,
+    };
+  }
+
+  const requiredIndices: [number, string][] = [
+    [LANDMARK.IRIS_LEFT, 'IRIS_LEFT'],
+    [LANDMARK.IRIS_RIGHT, 'IRIS_RIGHT'],
+    [LANDMARK.NOSE_TIP, 'NOSE_TIP'],
+    [LANDMARK.EYELID_LEFT_TOP, 'EYELID_LEFT_TOP'],
+    [LANDMARK.EYELID_LEFT_BOTTOM, 'EYELID_LEFT_BOTTOM'],
+    [LANDMARK.EYELID_RIGHT_TOP, 'EYELID_RIGHT_TOP'],
+    [LANDMARK.EYELID_RIGHT_BOTTOM, 'EYELID_RIGHT_BOTTOM'],
+  ];
+
+  for (const [idx, name] of requiredIndices) {
+    const lm = landmarks[idx];
+    if (!lm || !Number.isFinite(lm.x) || !Number.isFinite(lm.y)) {
+      return { valid: false, reason: `Required landmark ${name} (index ${idx}) is missing or has non-finite coordinates.` };
+    }
+  }
+
+  return { valid: true };
+}
+
 // --- Gaze pipeline -------------------------------------------------------------------
 export interface GazeProcessorDiagnostics {
   rawJitter: number;

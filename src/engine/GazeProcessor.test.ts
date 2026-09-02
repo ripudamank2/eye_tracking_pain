@@ -3,6 +3,7 @@ import {
   GazeProcessor,
   computeCalibration,
   computeEyeAperture,
+  validateLandmarkTopology,
   type Landmark,
   type CalibrationPoint,
 } from './GazeProcessor';
@@ -318,6 +319,86 @@ describe('GazeProcessor.process (full pipeline)', () => {
 
     const diagnostics = gp.getDiagnostics();
     expect(diagnostics.filteredJitter).toBeLessThan(diagnostics.rawJitter);
+  });
+});
+
+// --- Worker/tasks-vision migration: landmark topology validation --------------------
+// Added when the inference backend moved from the legacy @mediapipe/face_mesh library
+// (main thread only) to @mediapipe/tasks-vision's FaceLandmarker (Web Worker) - see
+// docs/LANDMARK_MAPPING.md. These tests use the SAME makeLandmarks() fixture as every
+// other test in this file specifically to prove the gaze pipeline's behavior is
+// unaffected by which backend produced the array - the shape ({x,y,z}[]) is what
+// matters, not which library built it.
+describe('validateLandmarkTopology', () => {
+  it('accepts a well-formed 478-point landmark array with all required indices present', () => {
+    const result = validateLandmarkTopology(makeLandmarks());
+    expect(result.valid).toBe(true);
+    expect(result.reason).toBeUndefined();
+  });
+
+  it('rejects an array shorter than 478 points (e.g. iris refinement not enabled/available)', () => {
+    const shortArray = makeLandmarks().slice(0, 468); // base mesh only, no iris points
+    const result = validateLandmarkTopology(shortArray);
+    expect(result.valid).toBe(false);
+    expect(result.reason).toContain('478');
+  });
+
+  it('rejects an array with the right length but a missing required landmark', () => {
+    const landmarks = makeLandmarks();
+    // @ts-expect-error - deliberately constructing an invalid fixture for this test
+    landmarks[468] = undefined;
+    const result = validateLandmarkTopology(landmarks);
+    expect(result.valid).toBe(false);
+    expect(result.reason).toContain('IRIS_LEFT');
+  });
+
+  it('rejects a required landmark with non-finite coordinates (NaN/Infinity)', () => {
+    const landmarks = makeLandmarks({ 386: { x: NaN, y: 0.5 } });
+    const result = validateLandmarkTopology(landmarks);
+    expect(result.valid).toBe(false);
+    expect(result.reason).toContain('EYELID_RIGHT_TOP');
+  });
+
+  it('does not reject an array with extra landmarks beyond 478 (forward-compatible)', () => {
+    const landmarks = [...makeLandmarks(), { x: 0.1, y: 0.1 }, { x: 0.2, y: 0.2 }];
+    const result = validateLandmarkTopology(landmarks);
+    expect(result.valid).toBe(true);
+  });
+});
+
+describe('GazeProcessor backend-equivalence (migration regression check)', () => {
+  it('produces identical gaze output whether landmarks include a `z` field with different precision or an extra `visibility` field (tasks-vision includes visibility; legacy face_mesh does not)', () => {
+    const legacyStyleLandmarks = makeLandmarks(); // {x, y} only, as legacy face_mesh produces
+    const tasksVisionStyleLandmarks = legacyStyleLandmarks.map((lm) => ({
+      ...lm,
+      z: 0,
+      visibility: 1, // extra field tasks-vision's NormalizedLandmark includes that legacy does not
+    }));
+
+    const gpLegacy = new GazeProcessor();
+    const gpTasksVision = new GazeProcessor();
+
+    const params = (landmarks: Landmark[]) => ({
+      leftIris: landmarks[468],
+      rightIris: landmarks[473],
+      noseTip: landmarks[1],
+      eyeSpan: 0.1,
+      referenceEyeSpan: 0.1,
+      aperture: computeEyeAperture(landmarks, 0.1),
+      screenWidth: 1920,
+      screenHeight: 1080,
+      dt: 1 / 60,
+    });
+
+    let legacyResult, tasksVisionResult;
+    for (let i = 0; i < 10; i++) {
+      legacyResult = gpLegacy.process(params(legacyStyleLandmarks));
+      tasksVisionResult = gpTasksVision.process(params(tasksVisionStyleLandmarks));
+    }
+
+    expect(tasksVisionResult!.x).toBeCloseTo(legacyResult!.x, 10);
+    expect(tasksVisionResult!.y).toBeCloseTo(legacyResult!.y, 10);
+    expect(tasksVisionResult!.confidence).toBeCloseTo(legacyResult!.confidence, 10);
   });
 });
 

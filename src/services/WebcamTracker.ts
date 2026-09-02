@@ -8,11 +8,13 @@ import {
   GazeProcessor,
   computeEyeAperture,
   computeCalibration,
+  validateLandmarkTopology,
   LANDMARK,
   type Landmark,
   type CalibrationPoint,
   type EyeApertureResult,
 } from '../engine/GazeProcessor';
+import { FaceLandmarkerWorkerClient } from './FaceLandmarkerWorkerClient';
 
 export interface FacePosition {
   x: number;
@@ -56,24 +58,11 @@ export interface TrackerDiagnostics {
   faceDetectionLossCount: number;
   gazeJitterPx: number;
   gazeLatencyMs: number;
+  /** Time spent inside the Worker's detectForVideo() call itself - the metric that
+   * isolates inference cost from the end-to-end gaze latency above. */
+  inferenceTimeMs: number;
   calibrationErrorPx: number;
   framesHeldForBlink: number;
-}
-
-// Dynamically load MediaPipe CDN scripts to prevent Vite CJS bundling errors
-function loadScript(src: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (document.querySelector(`script[src="${src}"]`)) {
-      resolve();
-      return;
-    }
-    const script = document.createElement('script');
-    script.src = src;
-    script.crossOrigin = 'anonymous';
-    script.onload = () => resolve();
-    script.onerror = (err) => reject(err);
-    document.head.appendChild(script);
-  });
 }
 
 const FACE_LOSS_GRACE_MS = 400; // brief occlusions (a hand passing, fast head turn) shouldn't flip status
@@ -81,10 +70,10 @@ const FRAME_HISTORY_SIZE = 60;
 
 export class WebcamTracker {
   private videoElement: HTMLVideoElement | null = null;
-  private camera: any = null; // eslint-disable-line @typescript-eslint/no-explicit-any
-  private faceMesh: any = null; // eslint-disable-line @typescript-eslint/no-explicit-any
+  private workerClient: FaceLandmarkerWorkerClient | null = null;
   private stream: MediaStream | null = null;
   private isRunning = false;
+  private captureLoopId: number | null = null;
 
   private gazeProcessor = new GazeProcessor();
   private referenceEyeSpan = 0.1;
@@ -121,6 +110,7 @@ export class WebcamTracker {
   private lastRawOffset: { offsetX: number; offsetY: number } | null = null;
   private lastConfidence = 0;
   private lastGazeLatencyMs = 0;
+  private lastInferenceTimeMs = 0;
 
   public async start(): Promise<boolean> {
     this.setStatus('starting');
@@ -159,61 +149,69 @@ export class WebcamTracker {
       this.videoElement.srcObject = this.stream;
       this.videoElement.width = 640;
       this.videoElement.height = 480;
-      this.videoElement.play();
+      this.videoElement.muted = true;
+      this.videoElement.playsInline = true;
+      await this.videoElement.play();
 
       this.recalibrate();
 
-      // Load MediaPipe scripts dynamically if not present on window
-      const win = window as any; // eslint-disable-line @typescript-eslint/no-explicit-any
-      if (!win.FaceMesh) {
-        await loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js');
-      }
-      if (!win.Camera) {
-        await loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js');
-      }
+      // Face landmark inference runs in a dedicated Web Worker (see
+      // FaceLandmarkerWorkerClient / workers/faceLandmarkerWorker.ts) so the WASM
+      // inference cost never blocks the main thread's render loop - this replaces the
+      // legacy @mediapipe/face_mesh library, which called document/window directly and
+      // so could only ever run synchronously on the main thread. See
+      // docs/LANDMARK_MAPPING.md for why the landmark indices this pipeline depends on
+      // are unaffected by this change.
+      this.workerClient = new FaceLandmarkerWorkerClient();
 
-      const FaceMeshConstructor = win.FaceMesh;
-      const CameraConstructor = win.Camera;
+      const ready = await this.workerClient.start({
+        onResult: (landmarks, inferenceTimeMs, frameTimestampMs) => {
+          this.lastInferenceTimeMs = inferenceTimeMs;
+          this.handleFaceMeshResults({ multiFaceLandmarks: landmarks });
+          this.recordFrame(frameTimestampMs);
+        },
+        onNoFace: (frameTimestampMs, inferenceTimeMs) => {
+          this.facePos.isTracking = false;
+          this.lastInferenceTimeMs = inferenceTimeMs;
+          this.recordFrame(frameTimestampMs);
+        },
+        onError: (message) => {
+          console.warn('[WebcamTracker] FaceLandmarker Worker error:', message);
+          this.setStatus('error', message);
+        },
+      });
 
-      if (!FaceMeshConstructor || !CameraConstructor) {
-        this.setStatus('error', 'MediaPipe failed to load.');
+      if (!ready) {
+        this.setStatus('error', 'Face landmark model failed to initialize.');
         this.stop();
         return false;
       }
 
-      this.faceMesh = new FaceMeshConstructor({
-        locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
-      });
-
-      this.faceMesh.setOptions({
-        maxNumFaces: 1,
-        refineLandmarks: true, // Enables sub-pixel Iris Pupil tracking (landmarks 468-477)
-        minDetectionConfidence: 0.5,
-        minTrackingConfidence: 0.5,
-      });
-
-      this.faceMesh.onResults((results: any) => this.handleFaceMeshResults(results)); // eslint-disable-line @typescript-eslint/no-explicit-any
-
-      this.camera = new CameraConstructor(this.videoElement, {
-        onFrame: async () => {
-          if (this.isRunning && this.videoElement && this.faceMesh) {
-            const frameStart = performance.now();
-            await this.faceMesh.send({ image: this.videoElement });
-            this.recordFrame(frameStart);
-          }
-        },
-        width: 640,
-        height: 480,
-      });
-      await this.camera.start();
-
       this.isRunning = true;
+      this.startCaptureLoop();
       return true;
     } catch (err) {
       this.setStatus('error', err instanceof Error ? err.message : String(err));
       this.stop();
       return false;
     }
+  }
+
+  /**
+   * Drives frame capture independently of the app's render loop - this is the whole
+   * point of moving inference to a Worker: rendering must never wait on it. Each tick
+   * posts the current video frame to the Worker only if it isn't still busy with a
+   * previous one (FaceLandmarkerWorkerClient.postFrame no-ops in that case rather than
+   * queuing), so a slow inference tick simply results in fewer camera frames processed,
+   * never a backlog and never a blocked render loop.
+   */
+  private startCaptureLoop() {
+    const tick = () => {
+      if (!this.isRunning || !this.videoElement || !this.workerClient) return;
+      this.workerClient.postFrame(this.videoElement, performance.now());
+      this.captureLoopId = requestAnimationFrame(tick);
+    };
+    this.captureLoopId = requestAnimationFrame(tick);
   }
 
   /**
@@ -277,17 +275,22 @@ export class WebcamTracker {
 
   public stop() {
     this.isRunning = false;
-    if (this.camera) {
-      try { this.camera.stop(); } catch { /* ignore */ }
-      this.camera = null;
+    if (this.captureLoopId !== null) {
+      cancelAnimationFrame(this.captureLoopId);
+      this.captureLoopId = null;
+    }
+    if (this.workerClient) {
+      this.workerClient.stop();
+      this.workerClient = null;
     }
     if (this.stream) {
       this.stream.getTracks().forEach((t) => t.stop());
       this.stream = null;
     }
-    if (this.faceMesh) {
-      try { this.faceMesh.close(); } catch { /* ignore */ }
-      this.faceMesh = null;
+    if (this.videoElement) {
+      this.videoElement.pause();
+      this.videoElement.srcObject = null;
+      this.videoElement = null;
     }
     this.facePos.isTracking = false;
 
@@ -341,6 +344,16 @@ export class WebcamTracker {
     }
   }
 
+  // Runtime validation that a landmark array actually has the topology this pipeline
+  // depends on (478 points, valid iris/eyelid/nose indices with real numeric
+  // coordinates) - added specifically because the inference backend changed (legacy
+  // face_mesh -> tasks-vision FaceLandmarker in a Worker) and a silent topology
+  // mismatch would otherwise show up only as subtly wrong gaze tracking, not a
+  // reportable error. Runs once per result rather than assuming the migration's
+  // landmark-index verification (docs/LANDMARK_MAPPING.md) holds forever - a future
+  // model/library update could change this quietly.
+  private hasWarnedTopology = false;
+
   private handleFaceMeshResults(results: { multiFaceLandmarks?: { x: number; y: number; z?: number }[][] }) {
     if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
       this.facePos.isTracking = false;
@@ -349,8 +362,21 @@ export class WebcamTracker {
 
     const landmarks = results.multiFaceLandmarks[0];
 
-    const leftIris: Landmark = landmarks[LANDMARK.IRIS_LEFT] || landmarks[469] || landmarks[LANDMARK.EYE_LEFT_OUTER];
-    const rightIris: Landmark = landmarks[LANDMARK.IRIS_RIGHT] || landmarks[474] || landmarks[LANDMARK.EYE_RIGHT_OUTER];
+    const topology = validateLandmarkTopology(landmarks);
+    if (!topology.valid) {
+      if (!this.hasWarnedTopology) {
+        console.warn(`[WebcamTracker] ${topology.reason} See docs/LANDMARK_MAPPING.md.`);
+        this.hasWarnedTopology = true;
+      }
+      // Fail safe: treat an incompatible result the same as "no face detected" rather
+      // than risk computing a gaze position from wrong/missing landmarks.
+      this.facePos.isTracking = false;
+      this.setStatus('error', topology.reason ?? 'Face landmark output does not match the expected topology.');
+      return;
+    }
+
+    const leftIris: Landmark = landmarks[LANDMARK.IRIS_LEFT];
+    const rightIris: Landmark = landmarks[LANDMARK.IRIS_RIGHT];
     const noseTip: Landmark = landmarks[LANDMARK.NOSE_TIP] || landmarks[4];
 
     const eyeSpan = Math.abs(rightIris.x - leftIris.x) || 0.1;
@@ -433,6 +459,7 @@ export class WebcamTracker {
       faceDetectionLossCount: this.faceDetectionLossCount,
       gazeJitterPx: Math.round(processorDiagnostics.filteredJitter * 10) / 10,
       gazeLatencyMs: Math.round(this.lastGazeLatencyMs * 10) / 10,
+      inferenceTimeMs: Math.round(this.lastInferenceTimeMs * 10) / 10,
       calibrationErrorPx: processorDiagnostics.calibrationError,
       framesHeldForBlink: processorDiagnostics.framesHeldForBlink,
     };

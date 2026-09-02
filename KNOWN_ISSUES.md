@@ -51,24 +51,32 @@ permission (untested this session), the global-cursor IPC stream in the standalo
 small to visually confirm eye rendering), and any multi-hour long-running-session check
 (memory growth, drift). These remain genuinely unverified, not assumed-fine.
 
-## MediaPipe inference measurably contends with the render loop on the main thread
+## RESOLVED: MediaPipe inference no longer runs on the main thread
 
-`WebcamTracker`'s camera loop calls `await this.faceMesh.send({ image })` synchronously
-inside MediaPipe's own frame callback - this is pre-existing architecture, not something
-this pass introduced, but this pass's new diagnostics are what surfaced it as a measured
-number instead of a suspicion. With the diagnostics panel open while webcam tracking was
-active (via a fake camera device, so this is representative of real inference cost, not
-video decode cost), the render loop's FPS dropped from a steady 60.0 to ~26 with 156
-dropped frames accumulating over a few seconds. Both MediaPipe's WASM inference and the
-app's `requestAnimationFrame` render loop run on the same JS thread, so heavier inference
-directly steals frame budget from rendering. This sandbox's software GPU rasterizer
-(`--use-gl=swiftshader`) makes the render side of that contention worse than a real GPU
-would, so the exact 26fps figure is not representative of real hardware - but the
-underlying contention (one thread, two competing workloads) is architectural and will
-reproduce to some degree on any machine, worse on lower-end ones. The real fix is running
-MediaPipe inference in a Web Worker (MediaPipe's own examples support this) so it can
-no longer block the paint thread; that is a nontrivial change and was not made in this
-pass - it's the top item in ROADMAP.md's core-engine follow-up list.
+Was: `WebcamTracker`'s camera loop called `await this.faceMesh.send({ image })`
+synchronously inside MediaPipe's own frame callback, on the same thread as the render
+loop, measurably dropping render FPS from 60 to ~19-26 while tracking was active (see
+git history for the original finding).
+
+Fixed by migrating the inference backend from `@mediapipe/face_mesh` to
+`@mediapipe/tasks-vision`'s `FaceLandmarker`, run inside a dedicated Web Worker - see
+docs/WORKER_MIGRATION.md for the full writeup, including a real upstream MediaPipe bug
+("ModuleFactory not set.") that had to be worked around to get the Worker to initialize
+at all. Measured result (same synthetic-fake-camera methodology, before/after): avg
+render FPS 19.1 → 50-53, dropped frames ~643 → ~83-125 over a comparable sample window.
+
+**What's still real and unresolved:**
+- All of the above was measured with **CPU-only inference** (MediaPipe's GPU delegate
+  did not actually engage in this software-rendered sandbox) - a real GPU should perform
+  better, unmeasured here.
+- Gaze round-trip latency did not improve (in one run, got slightly worse: ~53ms → ~59ms)
+  - the Worker `postMessage` boundary has real overhead. This is an accepted, expected
+    tradeoff for decoupling rendering from inference, not something hidden.
+- None of this has been verified against a real human face - see
+  docs/REAL_CAMERA_VALIDATION.md, still the required next step before any accuracy claim.
+- The `eval`-based workaround for the ModuleFactory bug depends on the current internal
+  structure of MediaPipe's CDN-hosted WASM loader script not changing - see
+  docs/WORKER_MIGRATION.md's "maintenance risk" note.
 
 ## Pre-existing: Electron `nodeIntegration: true`, `contextIsolation: false`
 
