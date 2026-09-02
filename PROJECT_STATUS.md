@@ -255,15 +255,68 @@ extraction, unrelated to this app's code. After fixing the local Electron instal
 | Real human face / real gaze accuracy | ⚠️ Cannot be tested — no physical webcam in this environment |
 | Long-running session (memory growth, drift over hours) | 🔴 Not tested — would need a multi-hour unattended run this session didn't perform |
 
+### Native Electron re-verification after the Worker migration (this pass)
+
+The table above predates the Web Worker migration (`@mediapipe/tasks-vision` +
+`FaceLandmarker`, see docs/WORKER_MIGRATION.md). Re-tested natively (real
+`./node_modules/electron/dist/electron`, not headless Chrome) with a fake camera device:
+
+| Check | Status |
+|---|---|
+| Worker-based inference initializes natively | ✅ Verified — same `XNNPACK delegate for CPU` log signature as the browser test, "AI Camera Eye Tracking: ON" reached, live crosshair tracking the fake video feed |
+| Native render FPS with Worker active | ✅ Measured **156.9 FPS**, 6.4ms avg frame time, 6 dropped frames, 72.5Hz camera/inference rate, 13.9ms gaze latency — markedly better than the ~50-53fps measured in headless Chrome. Flagged as measured-but-not-fully-understood: this may reflect Electron's renderer not being vsync-throttled the same way a browser tab is under `capturePage()`-driven testing, not necessarily "Electron is 3x faster" as a general claim |
+| Window resize | ✅ Verified — resized 1857×1051 → 1000×700 and back; page stayed responsive, DOM intact, no crash |
+| Webcam stop → restart cycle within one session | ✅ Verified — toggled ON → OFF → ON; Worker correctly terminated and recreated each time with no stale-state crash |
+| Application restart (fresh process, twice) | ✅ Verified — two consecutive clean 15s launch/shutdown cycles, zero errors in either |
+| Microphone permission (`getUserMedia({audio:true})`) | ✅ Verified — real fake audio track returned (`"Fake Default Audio Input"`, `live` state) with no thrown error |
+| Widget global-cursor IPC channel | 🟡 Partial — confirmed the channel is wired and fires (1 real event delivered when the OS cursor position first differs from the uninitialized baseline), but sustained streaming under actual cursor movement could not be verified: this environment has no OS-level input injection tool (`xdotool` not installed), and Playwright's `mouse.move()` only synthesizes DOM events, not real OS cursor motion, which is what the widget's `screen.getCursorScreenPoint()` polling reads |
+| Real human face / real gaze accuracy | ⚠️ Still cannot be tested — no physical webcam in this environment (unchanged) |
+
+## Long-Run Stability (this pass, bounded)
+
+Not a multi-hour test — this session cannot run unattended for hours between turns, so
+"long-run" here means the longest bounded automated soak achievable in one continuous
+tool call: **~4 minutes (238s) of continuous simulated activity** (webcam tracking
+active against a fake camera, particle-trail FX enabled, cursor moving continuously,
+periodic clicks to spawn particle bursts) in the browser dev server.
+
+**Result:** zero errors across the full run; JS heap oscillated between ~23MB and ~51MB
+with no sustained upward trend (consistent with normal GC cycling, not a leak at this
+timescale); canvas and app remained fully responsive at the end.
+
+**A real bug found and fixed by this testing**, not by inspection: `DiagnosticsRecorder`'s
+summary computation used `Math.max(...samples)` / `Math.min(...samples)` (spread syntax),
+which throws `RangeError: Maximum call stack size exceeded` once the sample array is
+large enough to exceed the JS engine's function-argument limit. This did not surface
+during the 4-minute soak (too few samples), but was caught by a unit test written
+specifically to exercise the newly-added 200,000-sample cap - meaning a real, sufficiently
+long recording session would have crashed on `stop()`/export before this fix. Fixed by
+replacing the spread-based `Math.max`/`Math.min` with `Array.reduce()`, which has no
+argument-count limit. Also added the 200,000-sample cap itself (~14 hours at the default
+poll rate) so an accidentally-forgotten multi-day recording cannot grow the in-memory
+array without bound - previously there was no cap at all.
+
+**What this does NOT verify:** actual multi-hour or multi-day behavior, WASM heap growth
+inside the FaceLandmarker Worker specifically over very long real-camera sessions, or
+`ImageBitmap` lifecycle correctness across the hundreds of thousands of frames a real
+multi-hour session would produce. These remain genuinely untested.
+
 ## Tests
 
-Vitest, 26 tests across `GazeProcessor.test.ts` and `RenderDiagnostics.test.ts` — run with
-`npm test`. Coverage: eye-aperture/blink classification (including missing-landmark and
-zero-eyeSpan boundary cases), calibration curve fitting (including degenerate
-zero-variance input), head yaw+pitch compensation, distance compensation direction, blink
-hold/resume behavior, confidence degradation at extreme head yaw, NaN/Infinity safety
-across degenerate inputs, and that the jitter filter measurably reduces jitter versus raw
-noisy input (deterministic PRNG, not `Math.random()`, for reproducibility).
+Vitest, **46 tests** across `GazeProcessor.test.ts`, `RenderDiagnostics.test.ts`, and
+`DiagnosticsRecorder.test.ts` — run with `npm test`. Coverage: eye-aperture/blink
+classification (including missing-landmark and zero-eyeSpan boundary cases), calibration
+curve fitting (including degenerate zero-variance input), head yaw+pitch compensation,
+distance compensation direction, blink hold/resume behavior, confidence degradation at
+extreme head yaw, NaN/Infinity safety across degenerate inputs, the jitter filter
+measurably reducing jitter versus raw noisy input (deterministic PRNG, not
+`Math.random()`, for reproducibility), landmark-topology validation for the Worker
+migration (including a backend-equivalence check proving `GazeProcessor` behaves
+identically regardless of which MediaPipe API produced the landmarks), and
+`DiagnosticsRecorder`'s recovery-time/time-in-status computation and sample-count cap —
+the last of which caught a real `RangeError` (spread-based `Math.max`/`Math.min`
+exceeding the JS engine's argument limit on a large array) before it could ship, see
+Long-Run Stability above.
 
 This does **not** cover: React component rendering (no `@testing-library/react`/jsdom
 setup), real MediaPipe inference behavior, or anything requiring actual camera hardware.
@@ -282,22 +335,27 @@ false` configuration was not touched and remains a known hardening gap — see K
 ## Remaining Work (priority order)
 
 1. **Run the real-camera validation protocol against an actual human face** — the single
-   highest-priority remaining item. All tooling exists
+   highest-priority remaining item, unchanged from before. All tooling exists
    (docs/REAL_CAMERA_VALIDATION.md, the 20-phase guided script, JSON/CSV export); it has
    not been run, because this environment has no physical webcam. Nothing else on this
    list matters if this reveals the underlying tracking is inaccurate.
 2. Measure GPU-delegate performance on real hardware — every FPS/latency number from the
-   Worker migration was measured under forced CPU-only inference in this sandbox.
-3. **AI Drowsiness/Yawn Guard** (🔴, from the roadmap pass) — buildable as a heuristic
-   extension of `WebcamTracker.detectGestures`; still not built.
-4. Test the standalone widget's global-cursor IPC stream and microphone permission flow
-   natively — not reached this session.
-5. A multi-hour long-running session check for memory growth/drift, specifically
-   including the new Worker (WASM heap growth, `ImageBitmap` lifecycle over thousands of
-   frames) — not performed at that scale.
-6. Watch [google-ai-edge/mediapipe#5257](https://github.com/google-ai-edge/mediapipe/issues/5257)
+   Worker migration was measured under forced CPU-only inference in this sandbox (MediaPipe
+   selected CPU/XNNPACK even when GPU was requested, likely because true GPU compute isn't
+   available under this sandbox's software rendering).
+3. A genuine multi-hour (not 4-minute) long-running session check, specifically watching
+   the FaceLandmarker Worker's WASM heap over that timescale against a real camera feed -
+   this pass's 4-minute automated soak found and fixed one real bug (see Long-Run
+   Stability above) but cannot stand in for actual multi-hour behavior.
+4. Watch [google-ai-edge/mediapipe#5257](https://github.com/google-ai-edge/mediapipe/issues/5257)
    for a real upstream fix to the module-Worker "ModuleFactory not set." bug, and remove
    the `eval`-based workaround in `faceLandmarkerWorker.ts` once one ships.
+5. Verify the widget's global-cursor IPC stream under actual sustained cursor movement -
+   this pass confirmed the channel is wired and fires (one real event), but this sandbox
+   has no OS-level input injection tool (`xdotool` not installed) to move the real OS
+   cursor and observe continuous streaming.
+6. **AI Drowsiness/Yawn Guard** (🔴, from the roadmap pass) — buildable as a heuristic
+   extension of `WebcamTracker.detectGestures`; still not built.
 7. Electron `nodeIntegration`/`contextIsolation` hardening (pre-existing, not introduced by
    any pass so far, but worth a dedicated security pass).
 8. C/D-tier roadmap items remain blocked on external dependencies as documented in

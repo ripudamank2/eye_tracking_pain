@@ -213,4 +213,23 @@ describe('DiagnosticsRecorder', () => {
     const csv = rec.toCSV();
     expect(csv.split('\n')).toHaveLength(1); // header only, no leftover samples
   });
+
+  // Ensures an accidentally days-long recording (e.g. a long real-camera validation
+  // session someone forgot to stop) cannot grow the in-memory sample array without
+  // bound - a real gap found and fixed during Step 4 long-run testing (a 4-minute
+  // automated soak did not hit this, but nothing previously stopped a much longer one
+  // from growing indefinitely).
+  it('caps sample growth at a fixed ceiling rather than growing without bound', () => {
+    const rec = new DiagnosticsRecorder();
+    rec.start();
+
+    const CAP = 200_000;
+    for (let i = 0; i < CAP + 50; i++) {
+      now = i;
+      rec.pushSample(sample());
+    }
+
+    const exported = rec.stop();
+    expect(exported!.samples.length).toBe(CAP);
+  });
 });

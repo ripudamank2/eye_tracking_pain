@@ -86,6 +86,7 @@ export class DiagnosticsRecorder {
     this.samples = [];
     this.events = [];
     this.lastStatus = null;
+    this.hasWarnedSampleLimit = false;
     this.logEvent('session_start', 'Recording started');
   }
 
@@ -101,6 +102,15 @@ export class DiagnosticsRecorder {
     return this.startTime !== null ? performance.now() - this.startTime : 0;
   }
 
+  // A validation recording is meant to capture the whole session for later export, so
+  // samples are not silently trimmed the way RenderDiagnostics' rolling window is - a
+  // long real-camera validation run needs its early phases in the export just as much
+  // as its later ones. Instead, a generous ceiling (at the default 250ms poll interval,
+  // ~14 hours) stops growth and warns once, rather than letting an accidentally
+  // days-long forgotten recording grow without bound.
+  private static readonly MAX_SAMPLES = 200_000;
+  private hasWarnedSampleLimit = false;
+
   public pushSample(sample: Omit<DiagnosticsSample, 't'>) {
     if (this.startTime === null) return;
     const t = this.now();
@@ -109,6 +119,14 @@ export class DiagnosticsRecorder {
       this.logEvent('status_change', `${this.lastStatus} -> ${sample.trackingStatus}`);
     }
     this.lastStatus = sample.trackingStatus;
+
+    if (this.samples.length >= DiagnosticsRecorder.MAX_SAMPLES) {
+      if (!this.hasWarnedSampleLimit) {
+        console.warn(`[DiagnosticsRecorder] Sample limit (${DiagnosticsRecorder.MAX_SAMPLES}) reached - further samples are dropped. Stop and export the current recording.`);
+        this.hasWarnedSampleLimit = true;
+      }
+      return;
+    }
 
     this.samples.push({ ...sample, t });
   }
@@ -138,9 +156,13 @@ export class DiagnosticsRecorder {
     const s = this.samples;
     const n = s.length;
 
+    // Math.max(...xs)/Math.min(...xs) blow the JS engine's argument-count limit on a
+    // large array (confirmed: a 200k-element spread throws "Maximum call stack size
+    // exceeded") - reduce() has no such limit since it never spreads the array into a
+    // single call's arguments.
     const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
-    const max = (xs: number[]) => (xs.length ? Math.max(...xs) : 0);
-    const min = (xs: number[]) => (xs.length ? Math.min(...xs) : 0);
+    const max = (xs: number[]) => (xs.length ? xs.reduce((a, b) => Math.max(a, b)) : 0);
+    const min = (xs: number[]) => (xs.length ? xs.reduce((a, b) => Math.min(a, b)) : 0);
 
     // Each interval [s[i-1].t, s[i].t] was spent in whatever status was true at the
     // START of the interval (s[i-1]'s status), not the status the next sample
