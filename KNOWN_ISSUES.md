@@ -1,5 +1,34 @@
 # Known Issues
 
+## Air Touch controls only Eye Tracker Studio's own window, not the real OS cursor
+
+See PROJECT_STATUS.md → "Air Touch / Hand Control V1" for the full writeup. Short
+version: this repository has no native OS input-injection capability on any platform
+today (no `robotjs`/`nut-js`/similar dependency; the existing Electron window is
+permanently click-through with only cursor *polling*, never injection). Air Touch V1's
+`InAppSystemInputProvider` moves a virtual cursor and dispatches synthetic DOM events
+within this app's own window - genuinely working, but not system-wide. Do not present
+Air Touch as controlling the desktop or other applications until a real
+`SystemInputProvider` backend is built per-platform (see PROJECT_STATUS.md's Platform
+status table for what each of Windows/macOS/Linux X11/Linux Wayland would actually
+require - Wayland in particular cannot be done the same way as the other three at all).
+
+A future native backend must be wired through a dedicated `contextBridge`-isolated
+preload script, not the existing `window.require('electron')` pattern the rest of the
+app currently uses (see the next entry) - do not extend the unsafe pattern to cover
+programmatic mouse/keyboard control, which is a meaningfully higher-risk capability to
+expose to an unrestricted renderer than the app's existing IPC surface.
+
+## Air Touch gesture thresholds are unvalidated heuristics
+
+Same caveat as the Drowsiness & Eye-Fatigue Guard entry below and every other webcam
+heuristic in this project: pinch-close/open distances, drag-start distance, and
+confirm-frame counts in `HandGestureDetector.ts` are product starting points, not
+validated against a real hand. Verified only against a synthetic fake-camera device in
+this environment (no physical webcam) - confirmed the panel, toggle, HandLandmarker
+Worker initialization, and calibration flow all work without error, but never confirmed
+against real pinch/fist/palm gestures.
+
 ## Recorder exports WebM, not GIF/MP4
 
 The README roadmap item is "Gaze Overlay GIF/MP4 Recorder". `GazeRecorder` uses the native

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Camera, Activity, Zap, Sparkles, Target, Gamepad2, Volume2, VolumeX, Sun, SlidersHorizontal, X, Mic, ShieldAlert, Move, LayoutGrid, Smile, Heart, Palette, Wind, CircleDot, Radar, Music, AudioWaveform, Video, Languages, Brain } from 'lucide-react';
+import { Camera, Activity, Zap, Sparkles, Target, Gamepad2, Volume2, VolumeX, Sun, SlidersHorizontal, X, Mic, ShieldAlert, Move, LayoutGrid, Smile, Heart, Palette, Wind, CircleDot, Radar, Music, AudioWaveform, Video, Languages, Brain, Hand } from 'lucide-react';
 import type { EyeTheme } from '../engine/EyeEngine';
 import type { EyePresetPosition } from '../App';
 import type { VoiceLanguage } from '../services/VoiceController';
@@ -61,6 +61,8 @@ interface ContextMenuProps {
   openValidation: () => void;
   openDrowsinessGuard: () => void;
   drowsinessGuardEnabled: boolean;
+  openAirTouch: () => void;
+  airTouchEnabled: boolean;
 }
 
 export const ContextMenu: React.FC<ContextMenuProps> = ({
@@ -120,6 +122,8 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   openValidation,
   openDrowsinessGuard,
   drowsinessGuardEnabled,
+  openAirTouch,
+  airTouchEnabled,
 }) => {
   if (!isOpen) return null;
 
@@ -318,6 +322,22 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
                 <span>Drowsiness & Eye-Fatigue Guard</span>
               </div>
               <span className="text-[10px] uppercase font-bold">{drowsinessGuardEnabled ? 'ON' : 'OFF'}</span>
+            </button>
+
+            <button
+              onClick={openAirTouch}
+              className={`w-full py-2 px-3 rounded-xl font-mono flex items-center justify-between transition-all cursor-pointer ${
+                airTouchEnabled
+                  ? 'bg-cyan-500/20 text-cyan-300 font-bold shadow-md shadow-cyan-500/10 border border-cyan-500/40'
+                  : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60'
+              }`}
+              title="Ctrl+Shift+H"
+            >
+              <div className="flex items-center gap-2">
+                <Hand className="w-4 h-4" />
+                <span>Air Touch (Hand Control)</span>
+              </div>
+              <span className="text-[10px] uppercase font-bold">{airTouchEnabled ? 'ON' : 'OFF'}</span>
             </button>
 
             <button

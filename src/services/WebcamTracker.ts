@@ -311,6 +311,17 @@ export class WebcamTracker {
     return this.stream;
   }
 
+  /**
+   * Exposes the already-owned, already-playing video element so Air Touch's HandTracker
+   * can drive its own independent capture loop over the SAME camera feed - deliberately
+   * read-only access (no setter), so a second consumer can look but never take ownership
+   * of the element's lifecycle (WebcamTracker alone creates/plays/pauses it, see
+   * start()/stop()). This is what avoids a second getUserMedia() call for hand tracking.
+   */
+  public getVideoElement(): HTMLVideoElement | null {
+    return this.videoElement;
+  }
+
   public getStatus(): TrackerStatus {
     return this.status;
   }

@@ -24,6 +24,9 @@ import { ValidationScreen } from './components/ValidationScreen';
 import { DrowsinessGuard } from './components/DrowsinessGuard';
 import { useDrowsinessGuard, DEFAULT_DROWSINESS_GUARD_SETTINGS } from './hooks/useDrowsinessGuard';
 import type { DrowsinessGuardSettings } from './hooks/useDrowsinessGuard';
+import { AirTouch } from './components/AirTouch';
+import { useAirTouch, DEFAULT_AIR_TOUCH_SETTINGS } from './hooks/useAirTouch';
+import type { AirTouchSettings } from './hooks/useAirTouch';
 import { Mic, SlidersHorizontal, Move, Brain } from 'lucide-react';
 
 export type EyePresetPosition = 'top_center' | 'top_left' | 'top_right' | 'bottom_left' | 'bottom_right' | 'center' | 'custom';
@@ -156,6 +159,11 @@ export function App() {
   const [isDrowsinessGuardOpen, setIsDrowsinessGuardOpen] = useState(false);
   const [drowsinessSettings, setDrowsinessSettings] = useState<DrowsinessGuardSettings>(DEFAULT_DROWSINESS_GUARD_SETTINGS);
 
+  // Air Touch / Hand Control - independent module, does not modify gaze tracking. Off
+  // by default. V1 controls an in-app virtual cursor only - see PROJECT_STATUS.md.
+  const [isAirTouchOpen, setIsAirTouchOpen] = useState(false);
+  const [airTouchSettings, setAirTouchSettings] = useState<AirTouchSettings>(DEFAULT_AIR_TOUCH_SETTINGS);
+
   // Input State & Screen Time Timers
   const mousePosRef = useRef({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
   const lastMousePosRef = useRef({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
@@ -242,6 +250,25 @@ export function App() {
       onSuggestEyeBreak: triggerEyeBreak,
     });
 
+  // Air Touch / Hand Control - independent module (see src/hooks/useAirTouch.ts). Does
+  // not read from or modify the gaze pipeline; only shares the already-open webcam feed.
+  const {
+    controllerState: airTouchState,
+    handDiagnostics: airTouchHandDiagnostics,
+    isCalibrated: airTouchIsCalibrated,
+    calibrationErrorNorm: airTouchCalibrationErrorNorm,
+    clearEmergencyStop: clearAirTouchEmergencyStop,
+    calibrationStepIndex: airTouchCalibrationStepIndex,
+    startCalibration: startAirTouchCalibration,
+    captureCalibrationPoint: captureAirTouchCalibrationPoint,
+    cancelCalibration: cancelAirTouchCalibration,
+    resetCalibration: resetAirTouchCalibration,
+  } = useAirTouch({
+    webcamTracker: webcamTrackerRef.current,
+    webcamActive,
+    settings: airTouchSettings,
+  });
+
   // Manual Emotion & Expression Engine triggers, exposed from the Studio Controls menu.
   const triggerExpression = (next: EyeExpression, durationMs: number) => {
     setExpression(next);
@@ -279,6 +306,7 @@ export function App() {
   // Developer/Debug Mode: Ctrl+Shift+D toggles the eye-engine diagnostics panel.
   // Ctrl+Shift+V opens the guided real-camera validation screen (see
   // docs/REAL_CAMERA_VALIDATION.md and ValidationScreen.tsx).
+  // Ctrl+Shift+H opens the Air Touch / Hand Control panel (see useAirTouch.ts).
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.shiftKey && (e.key === 'D' || e.key === 'd')) {
@@ -287,6 +315,9 @@ export function App() {
       } else if (e.ctrlKey && e.shiftKey && (e.key === 'V' || e.key === 'v')) {
         e.preventDefault();
         setValidationScreenOpen((prev) => !prev);
+      } else if (e.ctrlKey && e.shiftKey && (e.key === 'H' || e.key === 'h')) {
+        e.preventDefault();
+        setIsAirTouchOpen((prev) => !prev);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -936,6 +967,8 @@ export function App() {
         openValidation={() => setValidationScreenOpen(true)}
         openDrowsinessGuard={() => setIsDrowsinessGuardOpen(true)}
         drowsinessGuardEnabled={drowsinessSettings.enabled}
+        openAirTouch={() => setIsAirTouchOpen(true)}
+        airTouchEnabled={airTouchSettings.enabled}
       />
 
       {/* Guided real-camera validation - full-screen takeover, Ctrl+Shift+V or Studio Controls */}
@@ -965,6 +998,47 @@ export function App() {
         state={drowsinessState}
         webcamActive={webcamActive}
       />
+
+      {/* Air Touch / Hand Control settings/status panel + calibration flow */}
+      <AirTouch
+        isOpen={isAirTouchOpen}
+        onClose={() => setIsAirTouchOpen(false)}
+        settings={airTouchSettings}
+        setSettings={setAirTouchSettings}
+        controllerState={airTouchState}
+        handDiagnostics={airTouchHandDiagnostics}
+        webcamActive={webcamActive}
+        isCalibrated={airTouchIsCalibrated}
+        calibrationErrorNorm={airTouchCalibrationErrorNorm}
+        clearEmergencyStop={clearAirTouchEmergencyStop}
+        calibrationStepIndex={airTouchCalibrationStepIndex}
+        startCalibration={startAirTouchCalibration}
+        captureCalibrationPoint={captureAirTouchCalibrationPoint}
+        cancelCalibration={cancelAirTouchCalibration}
+        resetCalibration={resetAirTouchCalibration}
+      />
+
+      {/* Air Touch virtual cursor - only rendered while actively tracking, so it never
+          lingers at a stale position when paused/stopped/no-hand (see AirTouchController's
+          status semantics). z-[55]: above normal toasts/menus, below full-screen
+          calibration/validation takeovers. pointer-events-none so it never itself
+          intercepts a real mouse/touch interaction with the app underneath it. */}
+      {airTouchSettings.enabled && airTouchState.status === 'tracking' && airTouchState.cursor && (
+        <div
+          className="fixed z-[55] pointer-events-none -translate-x-1/2 -translate-y-1/2 transition-transform duration-75"
+          style={{ left: airTouchState.cursor.x, top: airTouchState.cursor.y }}
+        >
+          <div
+            className={`w-6 h-6 rounded-full border-2 shadow-lg ${
+              airTouchState.isDragging
+                ? 'bg-cyan-400/60 border-cyan-300 scale-125'
+                : airTouchState.lastGesture === 'pinch_start' || airTouchState.lastGesture === 'pinch_held'
+                  ? 'bg-cyan-400/40 border-cyan-300'
+                  : 'bg-white/20 border-white/80'
+            }`}
+          />
+        </div>
+      )}
 
       {/* AI Camera Gesture Toast */}
       {lastGesture && (

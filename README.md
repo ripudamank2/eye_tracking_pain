@@ -62,6 +62,32 @@ Eye Tracker Studio turns your cursor and camera into a high-performance 60 FPS i
 - 📊 **Odometer Analytics:** Tracks distance traveled in meters, total clicks, and real-time mouse speed.
 - 🎯 **Gaze Target Shooter Mini-Game:** Built-in interactive target popping game to test your gaze and cursor speed!
 
+### 6. ✋ Air Touch — Hand-Tracking Cursor Control (V1, in-app)
+Turns your webcam-tracked hand into a virtual pointer for Eye Tracker Studio's own UI —
+an independent module from eye tracking, built so the two can later be combined. Off by
+default (Studio Controls → Air Touch, or `Ctrl+Shift+H`).
+
+- **Index finger pointer:** extend your index finger to move a smoothed virtual cursor.
+- **Pinch = left click** (thumb + index): one click per pinch, not one per frame.
+- **Pinch + move = drag:** holding a pinch while moving translates to a real drag on
+  whatever's under the cursor.
+- **Two fingers (index + middle) = right click.**
+- **Open palm = pause:** stops cursor/input instantly, clears the moment you relax your hand.
+- **Fist = emergency stop:** immediately releases any held button; you must explicitly
+  re-enable Air Touch afterward (a safety button appears in the panel).
+- **Its own 5-point calibration**, entirely separate from gaze calibration — never shares
+  or overwrites eye-tracking calibration data.
+
+**Important scope note — read before assuming more:** V1 controls a virtual cursor and
+dispatches clicks *within Eye Tracker Studio's own window only*. It does **not** move
+your real OS mouse cursor or click other applications yet — this repository has no
+native OS input-injection capability at all today, on any platform. See
+[PROJECT_STATUS.md](PROJECT_STATUS.md) → "Air Touch / Hand Control V1" for the full
+architecture, an honest per-platform table (Windows/macOS/Linux X11/Linux Wayland — none
+implemented in V1), and what a future system-wide backend would require. Processing is
+fully local (MediaPipe HandLandmarker, same on-device model family as the existing eye
+tracker) — no camera frames or hand landmarks ever leave your machine.
+
 ---
 
 ## 🔮 Master Feature & AI Roadmap

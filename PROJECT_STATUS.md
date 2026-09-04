@@ -215,6 +215,153 @@ thresholds above have been tuned against a real human face yet — this needs a 
 validation pass (the tooling for that already exists, see "First Real-Camera Validation
 Run" above) before any claim about false-positive/false-negative rate in practice.
 
+## Air Touch / Hand Control V1 (2026-09-04)
+
+An independent module - a webcam hand-tracking cursor/click system, built alongside (not
+merged into) the existing eye-tracking pipeline. **Controls an in-app virtual cursor
+only in V1** - it does not move the real OS cursor or click other applications. See
+"What V1 does NOT do" below before assuming otherwise.
+
+**Architecture:** `HandLandmarker` from `@mediapipe/tasks-vision` (already installed for
+face tracking, confirmed via the package's own type declarations - **no new dependency
+added**) runs in a new dedicated Worker
+([src/workers/handLandmarkerWorker.ts](src/workers/handLandmarkerWorker.ts)),
+structurally identical to the existing `faceLandmarkerWorker.ts` (same Worker-context
+detection, same "ModuleFactory not set." upstream-bug workaround - see
+[docs/WORKER_MIGRATION.md](docs/WORKER_MIGRATION.md) for why that workaround exists).
+[HandTracker.ts](src/services/HandTracker.ts) drives its own independent
+`requestAnimationFrame` capture loop reading frames from the **same shared
+`HTMLVideoElement`** `WebcamTracker` already owns and plays (`WebcamTracker.getVideoElement()`,
+a new read-only accessor - the only change to `WebcamTracker.ts` besides that one
+addition) - **no second `getUserMedia()` call, no duplicated camera capture pipeline**.
+Hand tracking only starts once eye-tracking webcam access is already active.
+
+Pipeline: `HandTracker` (hardware adapter) → `HandGestureDetector` (pure gesture state
+machine: pointer/pinch/drag/two-finger/palm/fist, with per-pose confirm-frame debounce
+and a separate, shorter confirm requirement for fist specifically, since an emergency
+stop should react faster than a false-positive-prone cosmetic gesture) →
+`HandSmoother` (independent One-Euro-style filter + dead zone - a fresh implementation,
+not a reuse of `GazeProcessor`'s private filter, per this feature's explicit isolation
+requirement) → `ScreenMapper` (independent 5-point calibration + mirroring + edge
+clamping, stored entirely separately from gaze calibration - never reads or writes
+`GazeProcessor`/`CalibrationModal` state) → `AirTouchController` (the only class that
+calls into a `SystemInputProvider`; owns the safety invariant that a mouse button can
+never remain stuck - see below).
+
+**What V1 does NOT do:** move the real OS cursor, click other applications, or inject
+system-wide input on any platform. This repository had **zero** native input-injection
+capability before this pass (confirmed: no `robotjs`/`nut-js`/similar dependency
+anywhere; the existing Electron main window is permanently click-through via
+`setIgnoreMouseEvents(true)`, with only cursor *polling*, never injection - see
+`electron/main.cjs`). Building a real cross-platform native injector is out of scope for
+this pass - see "Platform status" below. `SystemInputProvider` is a clean interface
+(`src/services/SystemInputProvider.ts`) so a real backend can be dropped in later per
+platform without touching `AirTouchController` or anything upstream of it.
+`InAppSystemInputProvider` (V1's only real implementation) moves a rendered virtual
+cursor and dispatches synthetic `PointerEvent`/`MouseEvent` sequences to whatever DOM
+element is under that cursor within Eye Tracker Studio's own window - genuinely working
+click/drag on this app's own UI today, honestly scoped as exactly that.
+
+**Gestures implemented** (all in `HandGestureDetector.ts`, unit-tested):
+- **Index pointer** - extended index finger tracks the virtual cursor, smoothed.
+- **Pinch = left click** - thumb+index distance crossing a hand-scale-normalized
+  threshold, with hysteresis between close/open thresholds (prevents flicker at the
+  boundary) and a cooldown so a held pinch fires exactly one click, not one per frame.
+- **Pinch + movement = drag** - a held pinch that moves beyond a hand-scale-normalized
+  distance reclassifies as a drag; `AirTouchController` translates this into exactly one
+  `mouseDown` on drag-start and exactly one `mouseUp` on drag-end.
+- **Two-finger (index+middle) = right click** - same one-click-per-gesture-entry pattern
+  as pinch, via its own cooldown.
+- **Open palm = pause** - all four fingers extended; releases any held button and stops
+  cursor movement while held, clears automatically once the pose ends (does not latch).
+- **Fist = emergency stop** - all four fingers curled; releases any held button
+  immediately (see "fist reacts faster" note above) and **latches** - the spec's explicit
+  "user must explicitly re-enable" requirement, implemented as
+  `AirTouchController.clearEmergencyStop()`, exposed as a UI button when stopped.
+
+**Safety invariant:** a mouse button must never remain held after Air Touch stops
+controlling input, for any reason. Every path that can end control - disabling the
+feature, the hand disappearing mid-drag (`HandGestureDetector.notifyHandLost` reports
+`dragEnd: true` exactly for this case), a fist, an unhandled exception mid-frame
+(`AirTouchController.update()` wraps its work in try/finally), swapping input providers,
+or component unmount - funnels through `releaseAllInput()`/`destroy()`. Verified by
+dedicated tests in `AirTouchController.test.ts` (hand loss during drag, disable during
+drag, exception during drag, provider swap during drag, unmount).
+
+**Calibration:** 5-point (four corners + center), entirely independent storage
+(`AirTouchCalibration` in `src/engine/handTypes.ts`) from gaze calibration - never reads
+or writes `GazeProcessor`'s `CalibrationResult`. Own guided full-screen flow
+(`AirTouch.tsx`), least-squares affine fit (`computeScreenMapperFit` in
+`ScreenMapper.ts`), reports a mean reprojection error so a bad calibration is visible
+rather than silently trusted (same "don't hide a bad fit" principle as the gaze
+calibration's own mean-error reporting - see `CalibrationModal.tsx`).
+
+**Electron security:** the Air Touch input surface adds **no new IPC channels and no
+new `nodeIntegration`/`contextIsolation` exposure** - `InAppSystemInputProvider` is pure
+DOM/browser API (`document.elementFromPoint`, synthetic events), reachable entirely from
+the existing unsafe renderer context the app already runs in. The pre-existing
+`nodeIntegration: true`/`contextIsolation: false` configuration (see Known Issues) was
+not touched. A future native `SystemInputProvider` backend, when built, should be wired
+through a dedicated `contextBridge`-isolated preload script rather than the existing
+`window.require('electron')` pattern - this is a real, explicit design requirement for
+that future work, not implemented in V1 since V1 has no native backend to isolate yet.
+
+**Platform status:**
+```
+Windows        - not implemented (would need a native Node addon - robotjs/nut-js-class
+                 dependency - calling the Win32 SendInput/mouse_event API)
+macOS          - not implemented (additionally needs user-granted Accessibility/Input
+                 Monitoring permission before any native injection call could run)
+Linux / X11    - not implemented, but most tractable: XTest extension (what xdotool
+                 itself uses) can synthesize input given a real X11 connection. This
+                 project's own docs already note xdotool is unavailable in the current
+                 sandbox, so even this path remains unverified here.
+Linux / Wayland - cannot be implemented the same way at all. Wayland compositors
+                 deliberately block arbitrary apps from injecting global input; only
+                 privileged/portal-mediated mechanisms exist (e.g. the libei/
+                 RemoteDesktop XDG portal), a materially heavier integration than the
+                 other three platforms. Do not claim Wayland system-wide support
+                 without that specific integration.
+```
+None of the above are implemented in V1 - `SystemInputProvider`'s interface exists so
+they can be added later without touching gesture recognition, smoothing, mapping, or
+`AirTouchController`'s safety logic.
+
+**Tests:** 57 new unit tests across `HandGestureDetector.test.ts` (19: pointer, pinch
+start/hold/release/re-pinch, drag start/hold/end, two-finger, open palm, fist including
+mid-drag, single-frame noise rejection, hand loss/recovery), `AirTouchController.test.ts`
+(21: enable/disable, clicks, drag, pause, emergency stop incl. latching, and the full
+safety-invariant suite above), `ScreenMapper.test.ts` (9: calibrated mapping, corner
+accuracy, clamping, mirroring, invalid-coordinate fallback, degenerate calibration), and
+`HandSmoother.test.ts` (8: jitter reduction, dead zone, sudden movement, snap/reset
+recovery). All use synthetic landmark fixtures and a `MockSystemInputProvider` test
+double - **no physical webcam or hand ever required**, matching the project's existing
+testing convention. Two real bugs were found and fixed by these tests before they ever
+reached a real session: a click-cooldown initialization bug that silently suppressed the
+very first click of any session, and a too-slow fist-confirmation delay that would have
+let 1-2 frames of drag continue after a user made a fist. All pre-existing tests (76 →
+133, including the Drowsiness Guard's 28) still pass; the gaze pipeline was not modified.
+
+**Diagnostics:** hand-detected, confidence, current gesture, cursor coordinates, and
+inference/tracking FPS are tracked in `HandTracker.getDiagnostics()` and surfaced live in
+the `AirTouch.tsx` panel. Not yet threaded into `DiagnosticsRecorder`'s session export
+(unlike the Drowsiness Guard's fields) - see Remaining Work.
+
+**Known limitations:**
+- Verified only against a synthetic fake-camera device in this environment (no physical
+  webcam) - end-to-end confirmed: the panel opens, the toggle enables hand tracking, the
+  HandLandmarker Worker initializes without error, and calibration's guided flow runs
+  and cancels cleanly. **Never tested against a real hand** - gesture thresholds
+  (pinch distance, confirm-frame counts, drag-start distance) are unvalidated product
+  heuristics needing a real-camera tuning pass, same caveat as every other webcam
+  heuristic in this project.
+- System-wide OS input is not implemented on any platform (see Platform status above) -
+  V1 is honestly an in-app-only feature.
+- Two-finger detection and pinch geometry both key off hand-scale normalization (wrist-
+  to-middle-MCP distance, mirroring `GazeProcessor`'s `eyeSpan` pattern) rather than
+  fixed pixel distances, so accuracy at extreme close/far camera distances is unverified
+  without a real hand.
+
 ## Core Eye Engine Audit (this pass)
 
 A prior pass added roadmap features; this pass paused new features to audit and fix the
@@ -457,9 +604,12 @@ multi-hour session would produce. These remain genuinely untested.
 
 ## Tests
 
-Vitest, **76 tests** across `GazeProcessor.test.ts`, `RenderDiagnostics.test.ts`,
-`DiagnosticsRecorder.test.ts`, and `DrowsinessDetector.test.ts` (28 new tests, see
-"Drowsiness & Eye-Fatigue Guard" above) — run with `npm test`. Coverage: eye-aperture/blink
+Vitest, **133 tests** across `GazeProcessor.test.ts`, `RenderDiagnostics.test.ts`,
+`DiagnosticsRecorder.test.ts`, `DrowsinessDetector.test.ts` (28 tests, see "Drowsiness &
+Eye-Fatigue Guard" above), and the four Air Touch test files (57 tests total, see "Air
+Touch / Hand Control V1" above: `HandGestureDetector.test.ts`,
+`AirTouchController.test.ts`, `ScreenMapper.test.ts`, `HandSmoother.test.ts`) — run with
+`npm test`. Coverage: eye-aperture/blink
 classification (including missing-landmark and zero-eyeSpan boundary cases), calibration
 curve fitting (including degenerate zero-variance input), head yaw+pitch compensation,
 distance compensation direction, blink hold/resume behavior including the 2-frame
@@ -526,3 +676,18 @@ false` configuration was not touched and remains a known hardening gap — see K
    any pass so far, but worth a dedicated security pass).
 8. C/D-tier roadmap items remain blocked on external dependencies as documented in
    ROADMAP.md and `src/services/futureFeatures.ts`.
+9. **Test Air Touch against a real hand** (✅ built this pass, see "Air Touch / Hand
+   Control V1" above) — every gesture threshold (pinch distance, drag-start distance,
+   confirm-frame counts) is an unvalidated product heuristic, same caveat as every other
+   webcam-heuristic feature in this project. Verified only against a synthetic
+   fake-camera device (no physical webcam in this environment).
+10. **Build a real native `SystemInputProvider` backend** for at least one platform (Linux/
+    X11 is the most tractable - see the Platform status table above) so Air Touch can
+    control the real OS cursor, not just Eye Tracker Studio's own window. Requires a new
+    native dependency (not yet chosen/added) and, per this feature's own design, a
+    dedicated `contextBridge`-isolated preload script rather than the existing
+    `window.require('electron')` pattern - do not wire a future native input backend
+    through the unsafe pattern the rest of the app currently uses.
+11. Thread Air Touch's diagnostics (gesture, hand confidence, cursor position, click/drag
+    events) into `DiagnosticsRecorder`'s session export, the way the Drowsiness Guard's
+    fields already are - not done in this pass (see Air Touch's Known Limitations above).
