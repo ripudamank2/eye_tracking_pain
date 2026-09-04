@@ -40,7 +40,11 @@ export const CalibrationModal: React.FC<CalibrationModalProps> = ({ isOpen, onCl
       let sampleCount = 0;
 
       const sampleTimer = setInterval(() => {
-        const raw = webcamTracker.sampleRawOffset();
+        // Only accept a sample while actually tracking - sampleRawOffset() returns the
+        // last known offset even during face_lost (it's never cleared), so without this
+        // gate a brief tracking dropout during a target hold would silently bake a
+        // stale, wrong offset into this point's average instead of being excluded.
+        const raw = webcamTracker.getStatus() === 'tracking' ? webcamTracker.sampleRawOffset() : null;
         if (raw) samples.push(raw);
         sampleCount++;
 
@@ -122,11 +126,25 @@ export const CalibrationModal: React.FC<CalibrationModalProps> = ({ isOpen, onCl
       )}
 
       {isDone ? (
-        <div className="absolute bottom-16 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3">
+        <div className="absolute bottom-16 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3 max-w-md text-center">
           <p className="text-xs font-mono text-slate-400">
             Collected {collectedPoints.length} of {TARGET_POSITIONS.length} points
-            {collectedPoints.length < TARGET_POSITIONS.length && ' (some points had no tracked face - move closer to the camera and retry for best accuracy)'}
           </p>
+          {collectedPoints.length < 2 ? (
+            <p className="text-xs font-mono text-rose-300 bg-rose-500/10 border border-rose-500/40 rounded-lg px-3 py-2">
+              Not enough points tracked to calibrate ({collectedPoints.length}/2 minimum) — Apply is
+              disabled. This means calibration will NOT be applied. Move closer to the camera,
+              improve lighting, and retry.
+            </p>
+          ) : collectedPoints.length < TARGET_POSITIONS.length ? (
+            <p className="text-xs font-mono text-amber-300 bg-amber-500/10 border border-amber-500/40 rounded-lg px-3 py-2">
+              {TARGET_POSITIONS.length - collectedPoints.length} point(s) had no tracked face and
+              were skipped. You can still apply with the {collectedPoints.length} good points, but
+              accuracy will be lower — retry for best results.
+            </p>
+          ) : (
+            <p className="text-xs font-mono text-emerald-300">All points tracked cleanly.</p>
+          )}
           <div className="flex gap-3">
             <button
               onClick={handleCancel}

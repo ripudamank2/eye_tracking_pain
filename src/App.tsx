@@ -20,7 +20,11 @@ import { GazeRecorder } from './services/GazeRecorder';
 import { RenderDiagnostics } from './engine/RenderDiagnostics';
 import { DiagnosticsPanel } from './components/DiagnosticsPanel';
 import { CalibrationModal } from './components/CalibrationModal';
-import { Mic, SlidersHorizontal, Move } from 'lucide-react';
+import { ValidationScreen } from './components/ValidationScreen';
+import { DrowsinessGuard } from './components/DrowsinessGuard';
+import { useDrowsinessGuard, DEFAULT_DROWSINESS_GUARD_SETTINGS } from './hooks/useDrowsinessGuard';
+import type { DrowsinessGuardSettings } from './hooks/useDrowsinessGuard';
+import { Mic, SlidersHorizontal, Move, Brain } from 'lucide-react';
 
 export type EyePresetPosition = 'top_center' | 'top_left' | 'top_right' | 'bottom_left' | 'bottom_right' | 'center' | 'custom';
 
@@ -143,8 +147,14 @@ export function App() {
   const voiceControllerRef = useRef<VoiceController | null>(null);
   const renderDiagnosticsRef = useRef(new RenderDiagnostics());
   const [debugModeOpen, setDebugModeOpen] = useState(false);
+  const [validationScreenOpen, setValidationScreenOpen] = useState(false);
   const [isCalibrationOpen, setIsCalibrationOpen] = useState(false);
   const [lastCalibrationErrorPx, setLastCalibrationErrorPx] = useState<number | null>(null);
+
+  // Drowsiness & Eye-Fatigue Guard - heuristic wellness reminder, not a medical device
+  // (see src/engine/DrowsinessDetector.ts and PROJECT_STATUS.md). Off by default.
+  const [isDrowsinessGuardOpen, setIsDrowsinessGuardOpen] = useState(false);
+  const [drowsinessSettings, setDrowsinessSettings] = useState<DrowsinessGuardSettings>(DEFAULT_DROWSINESS_GUARD_SETTINGS);
 
   // Input State & Screen Time Timers
   const mousePosRef = useRef({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
@@ -222,6 +232,16 @@ export function App() {
     continuousActiveSecondsRef.current = 0;
   };
 
+  // Drowsiness & Eye-Fatigue Guard - reuses the existing Eye Break/voice safety
+  // infrastructure above rather than a second lock system (see useDrowsinessGuard.ts).
+  const { state: drowsinessState, hasActiveWarning: drowsinessWarningActive, dismissWarning: dismissDrowsinessWarning } =
+    useDrowsinessGuard({
+      webcamTracker: webcamTrackerRef.current,
+      webcamActive,
+      settings: drowsinessSettings,
+      onSuggestEyeBreak: triggerEyeBreak,
+    });
+
   // Manual Emotion & Expression Engine triggers, exposed from the Studio Controls menu.
   const triggerExpression = (next: EyeExpression, durationMs: number) => {
     setExpression(next);
@@ -257,11 +277,16 @@ export function App() {
   }, [soundEnabled]);
 
   // Developer/Debug Mode: Ctrl+Shift+D toggles the eye-engine diagnostics panel.
+  // Ctrl+Shift+V opens the guided real-camera validation screen (see
+  // docs/REAL_CAMERA_VALIDATION.md and ValidationScreen.tsx).
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.shiftKey && (e.key === 'D' || e.key === 'd')) {
         e.preventDefault();
         setDebugModeOpen((prev) => !prev);
+      } else if (e.ctrlKey && e.shiftKey && (e.key === 'V' || e.key === 'v')) {
+        e.preventDefault();
+        setValidationScreenOpen((prev) => !prev);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -908,6 +933,18 @@ export function App() {
         debugModeOpen={debugModeOpen}
         setDebugModeOpen={setDebugModeOpen}
         openCalibration={() => setIsCalibrationOpen(true)}
+        openValidation={() => setValidationScreenOpen(true)}
+        openDrowsinessGuard={() => setIsDrowsinessGuardOpen(true)}
+        drowsinessGuardEnabled={drowsinessSettings.enabled}
+      />
+
+      {/* Guided real-camera validation - full-screen takeover, Ctrl+Shift+V or Studio Controls */}
+      <ValidationScreen
+        isOpen={validationScreenOpen}
+        onClose={() => setValidationScreenOpen(false)}
+        webcamTracker={webcamTrackerRef.current}
+        renderDiagnostics={renderDiagnosticsRef.current}
+        webcamActive={webcamActive}
       />
 
       {/* Custom Eye Studio Modal */}
@@ -919,10 +956,52 @@ export function App() {
         onApply={() => setTheme('custom')}
       />
 
+      {/* Drowsiness & Eye-Fatigue Guard settings/status panel */}
+      <DrowsinessGuard
+        isOpen={isDrowsinessGuardOpen}
+        onClose={() => setIsDrowsinessGuardOpen(false)}
+        settings={drowsinessSettings}
+        setSettings={setDrowsinessSettings}
+        state={drowsinessState}
+        webcamActive={webcamActive}
+      />
+
       {/* AI Camera Gesture Toast */}
       {lastGesture && (
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900/95 border border-cyan-500/40 rounded-xl px-4 py-2 text-xs font-mono text-cyan-300 shadow-xl backdrop-blur-md animate-in fade-in">
           Gesture detected: <span className="font-bold">{lastGesture.replace('_', ' ')}</span>
+        </div>
+      )}
+
+      {/* Drowsiness & Eye-Fatigue Guard warning banner - visual side of the guard, see useDrowsinessGuard for the cooldown/notification logic behind this. */}
+      {drowsinessWarningActive && drowsinessSettings.enabled && (
+        <div
+          className={`absolute top-20 left-1/2 -translate-x-1/2 z-40 border rounded-xl px-4 py-2.5 text-xs font-mono shadow-xl backdrop-blur-md animate-in fade-in flex items-center gap-3 ${
+            drowsinessState.level === 'critical'
+              ? 'bg-rose-950/90 border-rose-500/50 text-rose-200'
+              : 'bg-amber-950/90 border-amber-500/50 text-amber-200'
+          }`}
+        >
+          <Brain className="w-4 h-4 shrink-0" />
+          <span>
+            {drowsinessState.level === 'critical'
+              ? 'You seem very drowsy — consider taking a break.'
+              : 'You seem tired — a short break might help.'}
+          </span>
+          {drowsinessSettings.eyeBreakSuggestionEnabled && (
+            <button
+              onClick={() => {
+                triggerEyeBreak();
+                dismissDrowsinessWarning();
+              }}
+              className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 font-bold shrink-0"
+            >
+              Take a Break
+            </button>
+          )}
+          <button onClick={dismissDrowsinessWarning} className="text-current/60 hover:text-current shrink-0">
+            ×
+          </button>
         </div>
       )}
 

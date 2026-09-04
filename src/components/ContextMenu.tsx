@@ -1,5 +1,5 @@
 import React from 'react';
-import { Camera, Activity, Zap, Sparkles, Target, Gamepad2, Volume2, VolumeX, Sun, SlidersHorizontal, X, Mic, ShieldAlert, Move, LayoutGrid, Smile, Heart, Palette, Wind, CircleDot, Radar, Music, AudioWaveform, Video, Languages } from 'lucide-react';
+import { Camera, Activity, Zap, Sparkles, Target, Gamepad2, Volume2, VolumeX, Sun, SlidersHorizontal, X, Mic, ShieldAlert, Move, LayoutGrid, Smile, Heart, Palette, Wind, CircleDot, Radar, Music, AudioWaveform, Video, Languages, Brain } from 'lucide-react';
 import type { EyeTheme } from '../engine/EyeEngine';
 import type { EyePresetPosition } from '../App';
 import type { VoiceLanguage } from '../services/VoiceController';
@@ -58,6 +58,9 @@ interface ContextMenuProps {
   debugModeOpen: boolean;
   setDebugModeOpen: (val: boolean) => void;
   openCalibration: () => void;
+  openValidation: () => void;
+  openDrowsinessGuard: () => void;
+  drowsinessGuardEnabled: boolean;
 }
 
 export const ContextMenu: React.FC<ContextMenuProps> = ({
@@ -114,6 +117,9 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   debugModeOpen,
   setDebugModeOpen,
   openCalibration,
+  openValidation,
+  openDrowsinessGuard,
+  drowsinessGuardEnabled,
 }) => {
   if (!isOpen) return null;
 
@@ -286,6 +292,32 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
                 <span>Eye Engine Diagnostics</span>
               </div>
               <span className="text-[10px] uppercase font-bold">{debugModeOpen ? 'ON' : 'OFF'}</span>
+            </button>
+
+            <button
+              onClick={openValidation}
+              className="w-full py-2 px-3 rounded-xl font-mono flex items-center justify-between transition-all cursor-pointer bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60"
+              title="Ctrl+Shift+V"
+            >
+              <div className="flex items-center gap-2">
+                <Target className="w-4 h-4" />
+                <span>Real-Camera Validation</span>
+              </div>
+            </button>
+
+            <button
+              onClick={openDrowsinessGuard}
+              className={`w-full py-2 px-3 rounded-xl font-mono flex items-center justify-between transition-all cursor-pointer ${
+                drowsinessGuardEnabled
+                  ? 'bg-violet-500/20 text-violet-300 font-bold shadow-md shadow-violet-500/10 border border-violet-500/40'
+                  : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Brain className="w-4 h-4" />
+                <span>Drowsiness & Eye-Fatigue Guard</span>
+              </div>
+              <span className="text-[10px] uppercase font-bold">{drowsinessGuardEnabled ? 'ON' : 'OFF'}</span>
             </button>
 
             <button

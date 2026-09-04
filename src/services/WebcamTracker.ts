@@ -15,6 +15,7 @@ import {
   type EyeApertureResult,
 } from '../engine/GazeProcessor';
 import { FaceLandmarkerWorkerClient } from './FaceLandmarkerWorkerClient';
+import { DrowsinessDetector, computeMouthOpenRatio, type DrowsinessState, type DrowsinessThresholds } from '../engine/DrowsinessDetector';
 
 export interface FacePosition {
   x: number;
@@ -63,6 +64,19 @@ export interface TrackerDiagnostics {
   inferenceTimeMs: number;
   calibrationErrorPx: number;
   framesHeldForBlink: number;
+  blinkCount: number;
+  gazeX: number | null;
+  gazeY: number | null;
+  // Drowsiness & Eye-Fatigue Guard (see DrowsinessDetector.ts) - null/0 whenever the
+  // guard is disabled, distinct from the gaze pipeline's own blinkCount above (that one
+  // feeds blink-gaze gating; these are the guard's independent, separately-thresholded
+  // reading of the same underlying eye-aperture signal).
+  drowsinessLevel: string | null;
+  drowsinessScore: number;
+  drowsinessEyeClosureMs: number;
+  drowsinessRecentBlinkCount: number;
+  drowsinessProlongedBlinkCount: number;
+  drowsinessYawnCount: number;
 }
 
 const FACE_LOSS_GRACE_MS = 400; // brief occlusions (a hand passing, fast head turn) shouldn't flip status
@@ -77,6 +91,13 @@ export class WebcamTracker {
 
   private gazeProcessor = new GazeProcessor();
   private referenceEyeSpan = 0.1;
+
+  // Drowsiness & Eye-Fatigue Guard: a separate, independent consumer of the same
+  // per-frame aperture/landmark data GazeProcessor and detectGestures already read -
+  // does not participate in gaze computation, calibration, or blink-gaze gating in any
+  // way. See src/engine/DrowsinessDetector.ts for the detector itself.
+  private drowsinessDetector = new DrowsinessDetector();
+  private drowsinessEnabled = false;
 
   public facePos: FacePosition = {
     x: window.innerWidth / 2,
@@ -224,8 +245,29 @@ export class WebcamTracker {
   public recalibrate() {
     this.gazeProcessor.resetBaseline();
     this.gazeProcessor.resetFilters();
+    this.gazeProcessor.resetBlinkCount();
+    this.faceDetectionLossCount = 0;
     this.referenceEyeSpan = 0.1;
     this.hasCapturedReferenceEyeSpan = false;
+    this.drowsinessDetector.reset(performance.now());
+  }
+
+  /** Enable/disable the Drowsiness & Eye-Fatigue Guard. Disabled by default - the user opts in. */
+  public setDrowsinessGuardEnabled(enabled: boolean) {
+    this.drowsinessEnabled = enabled;
+    if (enabled) this.drowsinessDetector.reset(performance.now());
+  }
+
+  public isDrowsinessGuardEnabled(): boolean {
+    return this.drowsinessEnabled;
+  }
+
+  public setDrowsinessThresholds(thresholds: Partial<DrowsinessThresholds>) {
+    this.drowsinessDetector.setThresholds(thresholds);
+  }
+
+  public getDrowsinessState(): DrowsinessState {
+    return this.drowsinessDetector.getState();
   }
 
   /**
@@ -357,6 +399,9 @@ export class WebcamTracker {
   private handleFaceMeshResults(results: { multiFaceLandmarks?: { x: number; y: number; z?: number }[][] }) {
     if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
       this.facePos.isTracking = false;
+      // No face this frame - never let missing data read as "eyes closed" (see
+      // DrowsinessDetector's face-loss handling doc).
+      if (this.drowsinessEnabled) this.drowsinessDetector.notifyTrackingLost(performance.now());
       return;
     }
 
@@ -372,6 +417,7 @@ export class WebcamTracker {
       // than risk computing a gaze position from wrong/missing landmarks.
       this.facePos.isTracking = false;
       this.setStatus('error', topology.reason ?? 'Face landmark output does not match the expected topology.');
+      if (this.drowsinessEnabled) this.drowsinessDetector.notifyTrackingLost(performance.now());
       return;
     }
 
@@ -424,6 +470,21 @@ export class WebcamTracker {
     if (this.status !== 'tracking') this.setStatus('tracking');
 
     this.detectGestures(landmarks, noseTip, eyeSpan, aperture);
+
+    if (this.drowsinessEnabled && aperture) {
+      const mouthOpenRatio = computeMouthOpenRatio(landmarks, eyeSpan);
+      this.drowsinessDetector.process({
+        timestampMs: performance.now(),
+        leftEyeAperture: aperture.leftAperture,
+        rightEyeAperture: aperture.rightAperture,
+        // Fall back to a closed-mouth-shaped ratio when mouth landmarks are
+        // unavailable, rather than skipping the frame entirely - the eye-closure signal
+        // this frame carries is still valid and worth feeding to the detector.
+        mouthOpenRatio: mouthOpenRatio ?? 0,
+        confidence: gazeResult.confidence,
+        isTracking: true,
+      });
+    }
   }
 
   /** Real, landmark-derived blink level (0 open .. 1 closed) for the renderer's eyelids to follow. */
@@ -449,6 +510,7 @@ export class WebcamTracker {
     }
     const frameTimeMs = fps > 0 ? 1000 / fps : 0;
     const processorDiagnostics = this.gazeProcessor.getDiagnostics();
+    const drowsiness = this.drowsinessEnabled ? this.drowsinessDetector.getState() : null;
 
     return {
       status: this.status,
@@ -462,6 +524,15 @@ export class WebcamTracker {
       inferenceTimeMs: Math.round(this.lastInferenceTimeMs * 10) / 10,
       calibrationErrorPx: processorDiagnostics.calibrationError,
       framesHeldForBlink: processorDiagnostics.framesHeldForBlink,
+      blinkCount: processorDiagnostics.blinkCount,
+      gazeX: processorDiagnostics.lastGazeX,
+      gazeY: processorDiagnostics.lastGazeY,
+      drowsinessLevel: drowsiness?.level ?? null,
+      drowsinessScore: drowsiness?.score ?? 0,
+      drowsinessEyeClosureMs: drowsiness?.eyeClosureMs ?? 0,
+      drowsinessRecentBlinkCount: drowsiness?.recentBlinkCount ?? 0,
+      drowsinessProlongedBlinkCount: drowsiness?.prolongedBlinkCount ?? 0,
+      drowsinessYawnCount: drowsiness?.yawnCount ?? 0,
     };
   }
 

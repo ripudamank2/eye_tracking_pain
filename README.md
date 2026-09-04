@@ -103,7 +103,7 @@ for caveats on a few "done" items that ship an honest, smaller version of what's
 
 ### 🧠 Emotion AI & Mood Synchronization
 - [ ] **AI Mood & Facial Expression Sync:** Real-time facial sentiment analysis via webcam so the eyes mirror your exact mood (*Happy, Surprised, Confused, Focused, Tired*). *(partial — heuristic gesture detection ships now; full sentiment classification needs a trained model, see ROADMAP.md)*
-- [ ] **AI Drowsiness & Yawn Safety Guard:** Detects eye strain, frequent blinks, or yawns to suggest 20-second eye relaxation breaks.
+- [x] **Drowsiness & Eye-Fatigue Guard:** Heuristic webcam-based reminder that detects prolonged eye closure, frequent/long blinking, and yawn-like mouth opening to suggest a break. *(a wellness/productivity heuristic, not a medical or sleep-diagnostic system — thresholds still need real-camera tuning; see KNOWN_ISSUES.md)*
 
 ### 🎯 AI Intent Pointer & Smart Gestures
 - [ ] **AI Target Snap-to-Button:** Predicts intended click targets from gaze velocity and snaps the reticle smoothly to buttons. *(blocked — needs OS accessibility-tree access, see ROADMAP.md)*

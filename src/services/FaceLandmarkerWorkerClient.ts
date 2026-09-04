@@ -24,6 +24,7 @@ export class FaceLandmarkerWorkerClient {
   private isReady = false;
   private isBusy = false;
   private callbacks: FaceLandmarkerCallbacks = {};
+  // Only used as a fallback if createImageBitmap(video) is unavailable (see postFrame).
   private offscreenCanvas: OffscreenCanvas | null = null;
   private offscreenCtx: OffscreenCanvasRenderingContext2D | null = null;
 
@@ -97,21 +98,64 @@ export class FaceLandmarkerWorkerClient {
    * frame - keeping rendering paced independently of inference means the render loop
    * calling this every frame should never build a backlog if inference is slower than
    * the render rate.
+   *
+   * Capture path: prefers `createImageBitmap(video)`, which browsers are permitted to
+   * (and Chromium does) decode off the main thread - unlike the previous
+   * `OffscreenCanvas` + `drawImage(video, ...)` blit, which is a synchronous main-thread
+   * video decode/copy. That cost was invisible when measured against a synthetic
+   * fake-camera test pattern (cheap, static) but real-camera validation data showed
+   * render FPS sagging in lockstep with camera FPS - i.e. still coupled to capture cost
+   * despite inference itself already running in the Worker. `createImageBitmap` isn't
+   * guaranteed async-off-main-thread by spec in every engine, so the OffscreenCanvas
+   * path remains as a fallback for browsers where it throws or is unavailable.
    */
   public postFrame(video: HTMLVideoElement, timestampMs: number) {
     if (!this.worker || !this.isReady || this.isBusy) return;
     if (video.videoWidth === 0 || video.videoHeight === 0) return;
 
+    this.isBusy = true;
+
+    if (typeof createImageBitmap === 'function') {
+      createImageBitmap(video)
+        .then((bitmap) => this.sendBitmap(bitmap, timestampMs))
+        .catch(() => {
+          this.isBusy = false;
+          this.postFrameViaCanvasFallback(video, timestampMs);
+        });
+      return;
+    }
+
+    this.postFrameViaCanvasFallback(video, timestampMs);
+  }
+
+  // Caller is responsible for setting isBusy = true before calling this (postFrame
+  // already does, on both the "no createImageBitmap" path and the catch-fallback path).
+  private postFrameViaCanvasFallback(video: HTMLVideoElement, timestampMs: number) {
+    if (!this.worker || !this.isReady) {
+      this.isBusy = false;
+      return;
+    }
+
     if (!this.offscreenCanvas || this.offscreenCanvas.width !== video.videoWidth || this.offscreenCanvas.height !== video.videoHeight) {
       this.offscreenCanvas = new OffscreenCanvas(video.videoWidth, video.videoHeight);
       this.offscreenCtx = this.offscreenCanvas.getContext('2d');
     }
-    if (!this.offscreenCtx || !this.offscreenCanvas) return;
+    if (!this.offscreenCtx || !this.offscreenCanvas) {
+      this.isBusy = false;
+      return;
+    }
 
     this.offscreenCtx.drawImage(video, 0, 0);
     const bitmap = this.offscreenCanvas.transferToImageBitmap();
+    this.sendBitmap(bitmap, timestampMs);
+  }
 
-    this.isBusy = true;
+  private sendBitmap(bitmap: ImageBitmap, timestampMs: number) {
+    if (!this.worker || !this.isReady) {
+      bitmap.close();
+      this.isBusy = false;
+      return;
+    }
     const msg: WorkerInboundMessage = { type: 'frame', image: bitmap, timestampMs };
     this.worker.postMessage(msg, [bitmap]);
   }

@@ -283,6 +283,9 @@ export interface GazeProcessorDiagnostics {
   lastConfidence: number;
   framesHeldForBlink: number;
   calibrationError: number;
+  blinkCount: number;
+  lastGazeX: number | null;
+  lastGazeY: number | null;
 }
 
 export class GazeProcessor {
@@ -308,6 +311,17 @@ export class GazeProcessor {
   private recentRawPositions: { x: number; y: number }[] = [];
   private recentFilteredPositions: { x: number; y: number }[] = [];
   private framesHeldForBlink = 0;
+  // Discrete blink count (rising edge of isBlinking), distinct from framesHeldForBlink
+  // (which counts frames, not blinks) - validation needs "how many blinks happened",
+  // not "how many frames were affected by blinking".
+  private blinkCount = 0;
+  private wasBlinking = false;
+  // Consecutive frames the raw per-frame aperture has read "closed" - requiring at
+  // least 2 before treating it as a real blink filters single-frame landmark-jitter
+  // noise (confirmed on real-camera validation data: raw single-frame gating produced
+  // an implausible ~1 blink/1.3s) while still catching genuinely fast real blinks,
+  // which close the eye for several consecutive frames even at 30-60fps.
+  private rawClosedFrameStreak = 0;
 
   public setCalibration(result: CalibrationResult) {
     this.calibration = result;
@@ -327,6 +341,12 @@ export class GazeProcessor {
     this.filterY.reset();
     this.lastGoodX = null;
     this.lastGoodY = null;
+  }
+
+  public resetBlinkCount() {
+    this.blinkCount = 0;
+    this.wasBlinking = false;
+    this.rawClosedFrameStreak = 0;
   }
 
   /**
@@ -414,17 +434,36 @@ export class GazeProcessor {
     // occluded), so freeze the filter's input at its last good estimate rather than
     // feeding it the noisy blink-time position. The previous implementation had no
     // such gate - a real blink would visibly spike the tracked gaze position.
-    const isBlinking = aperture?.isBlinking ?? false;
+    //
+    // Two related but distinct decisions, gated on different signals:
+    //  - Position hold (effectiveX/Y, isHeld) reacts to the raw per-frame aperture
+    //    (rawClosed) immediately, every frame - occluded landmarks are unreliable the
+    //    instant the aperture closes, and any delay here lets noisy blink-time
+    //    landmarks leak through the smoothing filter (confirmed: a fixed 2-frame delay
+    //    here let a large landmark jump leak through further than the filter damps).
+    //  - Discrete blink counting and confidence require the closed state to persist
+    //    for 2+ consecutive frames (rawClosedFrameStreak) before firing - this is what
+    //    real-camera validation data showed was necessary to avoid single-frame
+    //    landmark-jitter noise being miscounted as a full blink (measured ~1
+    //    blink/1.3s with a single-frame gate, confirmed too high against real blinking).
+    const rawClosed = aperture?.isBlinking ?? false;
+    this.rawClosedFrameStreak = rawClosed ? this.rawClosedFrameStreak + 1 : 0;
+    const isConfirmedBlink = this.rawClosedFrameStreak >= 2;
     let effectiveX = targetX;
     let effectiveY = targetY;
     let isHeld = false;
 
-    if (isBlinking && this.lastGoodX !== null && this.lastGoodY !== null) {
+    if (isConfirmedBlink && !this.wasBlinking) {
+      this.blinkCount++;
+    }
+    this.wasBlinking = isConfirmedBlink;
+
+    if (rawClosed && this.lastGoodX !== null && this.lastGoodY !== null) {
       effectiveX = this.lastGoodX;
       effectiveY = this.lastGoodY;
       isHeld = true;
       this.framesHeldForBlink++;
-    } else {
+    } else if (!rawClosed) {
       this.lastGoodX = targetX;
       this.lastGoodY = targetY;
     }
@@ -442,7 +481,7 @@ export class GazeProcessor {
     // iris-to-nose geometry this pipeline depends on becomes less reliable.
     const yawMagnitude = Math.abs((noseTip.x - (leftIris.x + rightIris.x) / 2) / (eyeSpan || 0.1));
     const yawConfidence = Math.max(0, 1 - yawMagnitude / 0.8);
-    const confidence = isBlinking ? 0.15 : Math.max(0.2, yawConfidence);
+    const confidence = rawClosed ? 0.15 : Math.max(0.2, yawConfidence);
 
     return {
       x: filteredX,
@@ -464,12 +503,17 @@ export class GazeProcessor {
       return sum / (points.length - 1);
     };
 
+    const lastFiltered = this.recentFilteredPositions[this.recentFilteredPositions.length - 1] ?? null;
+
     return {
       rawJitter: jitterOf(this.recentRawPositions),
       filteredJitter: jitterOf(this.recentFilteredPositions),
       lastConfidence: this.recentFilteredPositions.length > 0 ? 1 : 0,
       framesHeldForBlink: this.framesHeldForBlink,
       calibrationError: this.calibration.meanError,
+      blinkCount: this.blinkCount,
+      lastGazeX: lastFiltered?.x ?? null,
+      lastGazeY: lastFiltered?.y ?? null,
     };
   }
 }

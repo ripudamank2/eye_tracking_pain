@@ -21,6 +21,27 @@ single-frame geometric signature; a real implementation needs a trained model. D
 present the current heuristic as that feature — it covers a meaningfully smaller,
 already-useful surface (discrete gestures), not general mood sync.
 
+## Drowsiness & Eye-Fatigue Guard is a heuristic wellness reminder, not a medical device
+
+`DrowsinessDetector` derives prolonged-eye-closure, blink-frequency, and yawn signals
+from the same raw face-mesh landmark geometry (eye aperture, mouth-corner/lip distance)
+already used elsewhere in this app, with hand-tuned duration/frequency thresholds — same
+class of heuristic as the AI Mood Sync entry above, not a trained or medically validated
+model. It does **not** diagnose sleep disorders, fatigue disorders, or any medical
+condition, and the settings panel says so explicitly. Every threshold (eye-closure
+warning/critical duration, blink-rate window/count, yawn open-threshold/duration/
+cooldown) is a documented product heuristic requiring real-camera tuning — see
+PROJECT_STATUS.md's "Drowsiness & Eye-Fatigue Guard" section for the full default list
+and current unvalidated status. In particular: individual resting blink-rate varies
+significantly person to person, so `highBlinkRateThreshold` (35/min default) may read
+differently for different users; and there is no reliable way to distinguish a yawn from
+an unusually long/wide mouth movement during speech or laughter purely from geometry —
+duration + cooldown reduces false positives but cannot eliminate them. None of this has
+been tested against a real human face (no physical webcam in this development
+environment, same limitation as the rest of this project's webcam-dependent code) —
+verified only against a synthetic fake-camera device, where it correctly reports "Normal"
+throughout rather than fabricating a reading from the non-face test pattern.
+
 ## Update: native Electron launch was previously misdiagnosed as an environment limitation
 
 An earlier pass in this repo's history concluded Electron could not run at all in this

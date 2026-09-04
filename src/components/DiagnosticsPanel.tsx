@@ -106,9 +106,19 @@ export const DiagnosticsPanel: React.FC<DiagnosticsPanelProps> = ({
           faceDetectionLossCount: tSnap.faceDetectionLossCount,
           gazeJitterPx: tSnap.gazeJitterPx,
           gazeLatencyMs: tSnap.gazeLatencyMs,
+          inferenceTimeMs: tSnap.inferenceTimeMs,
           calibrationErrorPx: tSnap.calibrationErrorPx,
           framesHeldForBlink: tSnap.framesHeldForBlink,
+          blinkCount: tSnap.blinkCount,
+          gazeX: tSnap.gazeX,
+          gazeY: tSnap.gazeY,
           jsHeapMb: heapMb,
+          drowsinessLevel: tSnap.drowsinessLevel,
+          drowsinessScore: tSnap.drowsinessScore,
+          drowsinessEyeClosureMs: tSnap.drowsinessEyeClosureMs,
+          drowsinessRecentBlinkCount: tSnap.drowsinessRecentBlinkCount,
+          drowsinessProlongedBlinkCount: tSnap.drowsinessProlongedBlinkCount,
+          drowsinessYawnCount: tSnap.drowsinessYawnCount,
         });
       }
     }, POLL_INTERVAL_MS);
@@ -264,6 +274,7 @@ export const DiagnosticsPanel: React.FC<DiagnosticsPanelProps> = ({
               />
               <StatRow label="Face-loss events" value={String(trackerSnapshot.faceDetectionLossCount)} warn={trackerSnapshot.faceDetectionLossCount > 0} />
               <StatRow label="Gaze jitter" value={`${trackerSnapshot.gazeJitterPx.toFixed(1)} px`} warn={trackerSnapshot.gazeJitterPx > 15} />
+              <StatRow label="Blinks" value={String(trackerSnapshot.blinkCount)} />
               <StatRow label="Frames held (blink)" value={String(trackerSnapshot.framesHeldForBlink)} />
               <StatRow
                 label="Calibration error"

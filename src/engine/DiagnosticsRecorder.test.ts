@@ -15,9 +15,19 @@ function sample(overrides: Partial<DiagnosticsSample> = {}): Omit<DiagnosticsSam
     faceDetectionLossCount: 0,
     gazeJitterPx: 2,
     gazeLatencyMs: 30,
+    inferenceTimeMs: 12,
     calibrationErrorPx: 10,
     framesHeldForBlink: 0,
+    blinkCount: 0,
+    gazeX: 960,
+    gazeY: 540,
     jsHeapMb: 25,
+    drowsinessLevel: null,
+    drowsinessScore: 0,
+    drowsinessEyeClosureMs: 0,
+    drowsinessRecentBlinkCount: 0,
+    drowsinessProlongedBlinkCount: 0,
+    drowsinessYawnCount: 0,
     ...overrides,
   };
 }
@@ -197,8 +207,9 @@ describe('DiagnosticsRecorder', () => {
 
     const csv = rec.toCSV();
     expect(csv).not.toContain('NaN');
-    const dataRow = csv.split('\n')[1];
-    const calibrationErrorCell = dataRow.split(',')[13]; // calibrationErrorPx column index
+    const [headerRow, dataRow] = csv.split('\n');
+    const columnIndex = headerRow.split(',').indexOf('calibrationErrorPx');
+    const calibrationErrorCell = dataRow.split(',')[columnIndex];
     expect(calibrationErrorCell).toBe('');
   });
 

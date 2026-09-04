@@ -22,9 +22,25 @@ export interface DiagnosticsSample {
   faceDetectionLossCount: number;
   gazeJitterPx: number;
   gazeLatencyMs: number;
+  inferenceTimeMs: number;
   calibrationErrorPx: number;
   framesHeldForBlink: number;
+  blinkCount: number;
+  gazeX: number | null;
+  gazeY: number | null;
   jsHeapMb: number | null;
+  // Drowsiness & Eye-Fatigue Guard fields - null/0 whenever the guard is disabled for
+  // the session. Callers baselining a recording (see ValidationScreen.tsx) should
+  // subtract a captured baseline the same way blinkCount/faceDetectionLossCount already
+  // are, so pre-recording guard activity doesn't leak into the first sample - this is
+  // exactly the class of bug found and fixed in the first real-camera validation pass
+  // (see PROJECT_STATUS.md), and applies here for the same reason.
+  drowsinessLevel: string | null;
+  drowsinessScore: number;
+  drowsinessEyeClosureMs: number;
+  drowsinessRecentBlinkCount: number;
+  drowsinessProlongedBlinkCount: number;
+  drowsinessYawnCount: number;
 }
 
 export type DiagnosticsEventType =
@@ -64,11 +80,18 @@ export interface DiagnosticsSummary {
   maxGazeJitterPx: number;
   avgGazeLatencyMs: number;
   maxGazeLatencyMs: number;
+  avgInferenceTimeMs: number;
+  totalBlinkCount: number;
   finalCalibrationErrorPx: number | null;
   /** Time-in-status breakdown, ms - answers "how much of the session was actually tracking vs lost/starting". */
   timeInStatusMs: Record<string, number>;
   /** Each face_lost -> tracking transition's duration, ms - the recovery-time metric requested for Step 1. */
   recoveryTimesMs: number[];
+  /** Count of samples where drowsinessLevel was 'warning' - a rough session-level indicator, not a precise event count (the guard's own cooldown governs actual notifications). */
+  drowsinessWarningSampleCount: number;
+  /** Same, for 'critical'. */
+  drowsinessCriticalSampleCount: number;
+  finalDrowsinessYawnCount: number;
 }
 
 export class DiagnosticsRecorder {
@@ -212,9 +235,14 @@ export class DiagnosticsRecorder {
       maxGazeJitterPx: max(s.map((x) => x.gazeJitterPx)),
       avgGazeLatencyMs: avg(s.map((x) => x.gazeLatencyMs)),
       maxGazeLatencyMs: max(s.map((x) => x.gazeLatencyMs)),
+      avgInferenceTimeMs: avg(s.map((x) => x.inferenceTimeMs)),
+      totalBlinkCount: n ? s[n - 1].blinkCount : 0,
       finalCalibrationErrorPx: finalCalibrated ? finalCalibrated.calibrationErrorPx : null,
       timeInStatusMs,
       recoveryTimesMs,
+      drowsinessWarningSampleCount: s.filter((x) => x.drowsinessLevel === 'warning').length,
+      drowsinessCriticalSampleCount: s.filter((x) => x.drowsinessLevel === 'critical').length,
+      finalDrowsinessYawnCount: n ? s[n - 1].drowsinessYawnCount : 0,
     };
   }
 
@@ -228,7 +256,10 @@ export class DiagnosticsRecorder {
       't', 'fps', 'frameTimeMs', 'p95FrameTimeMs', 'droppedFrames',
       'cameraFps', 'cameraFrameTimeMs', 'cameraDroppedFrames',
       'trackingStatus', 'trackingConfidence', 'faceDetectionLossCount',
-      'gazeJitterPx', 'gazeLatencyMs', 'calibrationErrorPx', 'framesHeldForBlink', 'jsHeapMb',
+      'gazeJitterPx', 'gazeLatencyMs', 'inferenceTimeMs', 'calibrationErrorPx', 'framesHeldForBlink',
+      'blinkCount', 'gazeX', 'gazeY', 'jsHeapMb',
+      'drowsinessLevel', 'drowsinessScore', 'drowsinessEyeClosureMs', 'drowsinessRecentBlinkCount',
+      'drowsinessProlongedBlinkCount', 'drowsinessYawnCount',
     ];
     // Normalize NaN/non-finite numeric fields (e.g. calibration error before any
     // calibration has run) to blank rather than the literal "NaN" string, which is

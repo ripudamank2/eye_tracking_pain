@@ -1,9 +1,21 @@
 # Project Status
 
 Tracks the README's feature roadmap against what's actually implemented and verified in
-this repository. Updated 2026-09-02.
+this repository. Updated 2026-09-04.
 
 Legend: ✅ Complete &nbsp; 🟡 Partial &nbsp; 🔴 Not implemented &nbsp; ⚠️ Blocked &nbsp; 🔧 Needs verification
+
+**Core eye engine completion: ~72%.** Up slightly from a prior ~70% estimate that
+predates any real-camera data. The math/architecture layer (filtering, calibration
+model, head compensation, diagnostics) is sound and now has 48 unit tests plus, for the
+first time, real evidence from an actual human face - which is what surfaced and got four
+real bugs fixed this pass (silent calibration failure, contaminated session counters,
+blink false-positive rate, render/camera FPS coupling). The percentage moved up modestly
+because real bugs were found *and fixed*, not because accuracy has been proven - the one
+number that would justify a much higher score (calibrated real-face gaze accuracy in
+pixels/degrees) still has not been measured, because the only real-camera session run so
+far had a silently-broken calibration. That re-run is the top remaining item (see
+"Remaining Work" below) and is likely to move this number again, in either direction.
 
 ## Architecture (current)
 
@@ -107,7 +119,7 @@ the gaze target shooter mini-game.
 | Feature | Status |
 |---|---|
 | AI Mood & Facial Expression Sync | 🟡 — heuristic version only (see Known Issues); full sentiment classification is ⚠️ blocked, needs a trained model beyond raw face-mesh geometry |
-| AI Drowsiness & Yawn Safety Guard | 🔴 not implemented this pass — buildable as a heuristic (blink-rate + mouth-aperture over time) but not built; would extend `WebcamTracker.detectGestures` |
+| Drowsiness & Eye-Fatigue Guard | ✅ Heuristic (see "Drowsiness & Eye-Fatigue Guard" section below) — **explicitly not a medical/sleep-diagnostic system**, framed in the UI as a wellness/productivity reminder |
 
 ### 🎯 AI Intent Pointer & Smart Gestures
 | Feature | Status |
@@ -133,6 +145,75 @@ the gaze target shooter mini-game.
 | Spatial 3D Holographic Eyes (WebXR/AR/VR) | ⚠️ Blocked — needs AR/VR hardware (Vision Pro / Quest). Interface stub: `XrEyeRenderer` |
 | Brain-Computer Interface Hybrid | ⚠️ Blocked — needs BCI hardware + vendor SDK. Interface stub: `BciInputProvider` |
 | Autonomous AI Screen Companion | 🔴 Research-grade / open-ended — not a scoped feature; would need continuous screen understanding + an agent loop, well beyond "implement now" |
+
+## Drowsiness & Eye-Fatigue Guard (2026-09-04)
+
+A heuristic wellness/productivity reminder, **not a medical device** — it does not
+diagnose sleep disorders, fatigue disorders, or any medical condition. This is stated
+explicitly in the UI (a visible disclaimer in the settings panel) and here.
+
+**Architecture:** a new pure, timestamp-driven detector,
+[src/engine/DrowsinessDetector.ts](src/engine/DrowsinessDetector.ts), consumes signals
+the gaze pipeline already computes every frame (`computeEyeAperture`'s per-eye aperture,
+already used for blink-gaze gating; the same mouth-corner/lip landmarks
+`WebcamTracker.detectGestures` already uses for smile detection, normalized into a mouth-
+open ratio against `eyeSpan`) — **no new MediaPipe model or inference pipeline was
+added**. It is driven from a single new call inside
+`WebcamTracker.handleFaceMeshResults`, immediately after the existing
+`detectGestures(...)` call, and an explicit pause call on the existing no-face/topology-
+failure early-return paths. `GazeProcessor.ts`, calibration, the One-Euro filter, gaze
+coordinate mapping, head yaw/pitch compensation, `FaceLandmarkerWorkerClient.ts`,
+`faceLandmarkerWorker.ts`, camera lifecycle, and blink-gaze gating were **not modified**.
+
+**Signals and scoring:** continuous eye-closure duration, rolling-window blink frequency,
+repeated long closures, and duration-gated yawn detection (open → sustained ≥700ms →
+cooldown, filtering talking/laughing) feed a small additive score, mapped to
+normal/attention/warning/critical via hysteresis (hold time required both to rise and to
+fall) so noisy single frames can't flip the level. Face-loss and low-confidence frames are
+explicitly excluded from scoring (`notifyTrackingLost`) rather than read as closed eyes.
+No separate architecture doc was written for this feature — the detector file's own doc
+comments and this section are the canonical explanation.
+
+**Defaults** (Normal sensitivity — see `SENSITIVITY_PRESETS` in `useDrowsinessGuard.ts`
+for Low/High): eye-closure warning 1200ms, critical 2500ms, long-blink 500ms, blink-rate
+window 60s / threshold 35, yawn open-threshold ratio 0.55, yawn minimum duration 700ms,
+yawn cooldown 5s, min-confidence gate 0.35, tracking-loss reset 4s. **These are explicit
+product heuristics, not physiologically validated constants** — see Known Issues for what
+still needs real-camera tuning (the same caveat this repo already applies to every other
+webcam-heuristic feature).
+
+**Product controls** (Studio Controls → Drowsiness & Eye-Fatigue Guard, or its own
+settings panel): enable/disable (off by default), sensitivity (Low/Normal/High), voice
+warning on/off, eye-break reminder on/off, automatic break on/off (**off by default** —
+never auto-triggers the existing Eye Break/OS-lock system without the user opting in).
+Reuses the existing `triggerEyeBreak`/`EyeBreakModal`/speech-synthesis infrastructure
+rather than building a second lock system; notification side effects (voice, warning
+banner) go through a per-level cooldown (warning 60s, critical 120s) in
+`useDrowsinessGuard.ts` so a sustained state doesn't repeatedly re-fire.
+
+**Diagnostics:** `WebcamTracker.getDiagnostics()` exposes `drowsinessLevel`, `-Score`,
+`-EyeClosureMs`, `-RecentBlinkCount`, `-ProlongedBlinkCount`, `-YawnCount` (null/0 when
+the guard is disabled). Threaded into both `DiagnosticsPanel` and the real-camera
+`ValidationScreen`'s JSON/CSV export, with `drowsinessYawnCount` baselined at Start
+Recording the same way `blinkCount`/`faceDetectionLossCount` already are — this is the
+exact class of bug found and fixed in the first real-camera validation pass (see above);
+applying that lesson here rather than repeating it.
+
+**Tests:** 28 new unit tests in `DrowsinessDetector.test.ts` (eye closure incl. noise
+rejection, blink frequency incl. rolling-window expiry, yawn detection incl. talking/
+laughing false-positive rejection and cooldown, combined-signal scoring, face-loss/low-
+confidence handling, hysteresis, and `computeMouthOpenRatio`). All pre-existing tests
+(48) still pass — 76/76 total. Verified running end-to-end against a fake-camera device
+(no physical webcam in this environment, same limitation as the rest of this project's
+webcam-dependent code): the guard enables/disables correctly, the settings panel renders
+correctly, and — critically — correctly reports "Normal" with zero readings the entire
+time against a synthetic non-face test pattern, rather than fabricating a drowsy reading
+from missing data.
+
+**Known limitation, same as every other webcam heuristic in this project:** none of the
+thresholds above have been tuned against a real human face yet — this needs a real-camera
+validation pass (the tooling for that already exists, see "First Real-Camera Validation
+Run" above) before any claim about false-positive/false-negative rate in practice.
 
 ## Core Eye Engine Audit (this pass)
 
@@ -236,6 +317,79 @@ this is tooling for a human to run, not a result this pass can produce itself):
   a future silent landmark-shape change from either backend fails safe (treated as "no
   face detected") instead of silently computing wrong gaze positions.
 
+## First Real-Camera Validation Run (2026-09-04) — findings and fixes
+
+The guided validation screen (`ValidationScreen.tsx`, Ctrl+Shift+V) was run against a
+real laptop webcam and a real human face for the first time — a ~108-second session
+covering the full 22-phase guided script. This is the first data in this project's
+history that isn't from a synthetic fake-camera device. It surfaced four real, distinct
+bugs, all now fixed:
+
+**1. Silent calibration failure (real, confirmed bug).** The exported
+`calibrationErrorPx` was `null` for the entire session despite the user having run the 5-
+point calibration flow beforehand. Root cause: `CalibrationModal`'s "Apply Calibration"
+button is silently `disabled` (just visually dimmed) whenever fewer than 2 of the 5
+points captured a valid sample — with no blocking message explaining why, a user can
+walk through the full flow, believe they calibrated, and have it silently no-op. Fixed:
+the modal now shows an explicit red "will NOT be applied" message when under 2 points are
+collected, and an amber "applied but accuracy may be lower" message when some (but not
+all) points were skipped. Also fixed a related data-quality bug: `sampleRawOffset()`
+returned the last known offset even during `face_lost` status (never cleared), so a brief
+tracking dropout during a target hold could silently bake a stale, wrong offset into that
+point's average instead of being excluded — sampling now only accepts a point while
+`getStatus() === 'tracking'`.
+
+**2. Session-relative counters were actually tracker-lifetime-cumulative (bug introduced
+by, and fixed within, this same pass).** `blinkCount`, `framesHeldForBlink`,
+`faceDetectionLossCount`, and dropped-frame counts reset only when `WebcamTracker.start()`
+runs, not when a validation recording starts — so a session that began recording after
+webcam tracking had already been running for a while (e.g. through the "Get ready" phase)
+had pre-recording activity baked into its very first exported sample (confirmed: the
+first sample already showed `blinkCount: 74` at `t=94ms`). Fixed: `ValidationScreen` now
+captures a baseline snapshot of these counters at "Start Recording" and reports/exports
+deltas, matching what a validation session should actually measure.
+
+**3. Blink false-positive rate too high (real, confirmed by the user against actual
+blinking).** Even after correcting for finding #2, the corrected in-session rate was
+~1 blink/1.3s - about 2-3x normal resting blink rate, confirmed too high by the user.
+Root cause: `computeEyeAperture`'s `isBlinking` was a single-frame threshold
+(`aperture < 0.12`) with no debounce, so a single noisy frame from real-camera landmark
+jitter (never present in the synthetic fixtures this was tuned against) could register as
+a full blink. Fixed in `GazeProcessor`: discrete blink *counting* now requires the closed-
+aperture signal to hold for 2+ consecutive frames (`rawClosedFrameStreak`) before firing,
+eliminating single-frame noise as a false positive. Gaze-position holding and confidence
+still react to the raw per-frame aperture immediately (not debounced) - occluded landmarks
+are unreliable the instant the aperture closes, and delaying that specifically let noisy
+blink-time landmarks leak further into the smoothing filter than acceptable (caught by a
+regression test during this fix, see `GazeProcessor.test.ts`).
+
+**4. Render FPS coupled to camera FPS despite the Worker migration (real architectural
+finding).** The Worker migration moved MediaPipe *inference* off the main thread, but
+`FaceLandmarkerWorkerClient.postFrame()` still called `OffscreenCanvas` + `drawImage(video,
+...)` synchronously on the main thread to *capture* each frame before sending it to the
+Worker. Against the synthetic fake-camera test pattern (all prior FPS measurements), this
+was cheap and invisible. Against a real webcam video stream, real-camera validation data
+showed render FPS visibly sagging in lockstep with camera FPS - i.e. still coupled to
+capture cost, not just inference. Fixed: `postFrame` now prefers `createImageBitmap(video)`
+for capture, which browsers are permitted to (and Chromium does) decode off the main
+thread, with the old `OffscreenCanvas`/`drawImage` path kept only as a fallback for
+engines where `createImageBitmap` throws or is unavailable. Not yet re-measured against a
+real camera (needs a follow-up validation run) - the fix is architecturally sound and
+verified not to break the capture pipeline (checked via fake-camera end-to-end run:
+webcam pipeline still activates, tracks, and produces landmarks correctly), but the actual
+FPS improvement this produces on real hardware is unconfirmed.
+
+**What this run could NOT validate, because calibration never actually applied (finding
+#1) - a from-scratch clean re-run is required:** real gaze *accuracy* (calibrated
+pixel/degree error), whether jitter/latency/dropped-frames look reasonable under
+correctly-calibrated conditions, and whether the corrected blink-count fix produces a
+plausible rate end-to-end. 19 face-loss events occurred in 108s with recovery times
+ranging 205ms-5.4s (inconsistent, not yet root-caused - worth watching on the next run).
+Recorded diagnostics genuinely worked end-to-end (JSON+CSV export, per-phase markers,
+live HUD) and gave usable evidence for finding real bugs even from a session that turned
+out to have a broken calibration state, which is itself a meaningful validation of the
+tooling.
+
 ## Native Electron Verification
 
 An earlier session in this repo's history concluded Electron could not launch at all in
@@ -303,14 +457,18 @@ multi-hour session would produce. These remain genuinely untested.
 
 ## Tests
 
-Vitest, **46 tests** across `GazeProcessor.test.ts`, `RenderDiagnostics.test.ts`, and
-`DiagnosticsRecorder.test.ts` — run with `npm test`. Coverage: eye-aperture/blink
+Vitest, **76 tests** across `GazeProcessor.test.ts`, `RenderDiagnostics.test.ts`,
+`DiagnosticsRecorder.test.ts`, and `DrowsinessDetector.test.ts` (28 new tests, see
+"Drowsiness & Eye-Fatigue Guard" above) — run with `npm test`. Coverage: eye-aperture/blink
 classification (including missing-landmark and zero-eyeSpan boundary cases), calibration
 curve fitting (including degenerate zero-variance input), head yaw+pitch compensation,
-distance compensation direction, blink hold/resume behavior, confidence degradation at
-extreme head yaw, NaN/Infinity safety across degenerate inputs, the jitter filter
-measurably reducing jitter versus raw noisy input (deterministic PRNG, not
-`Math.random()`, for reproducibility), landmark-topology validation for the Worker
+distance compensation direction, blink hold/resume behavior including the 2-frame
+debounce for discrete blink *counting* versus immediate (non-debounced) position-hold and
+confidence reaction to raw per-frame aperture (added this pass after real-camera
+validation data showed a single-frame count gate produced an implausible blink rate),
+confidence degradation at extreme head yaw, NaN/Infinity safety across degenerate inputs,
+the jitter filter measurably reducing jitter versus raw noisy input (deterministic PRNG,
+not `Math.random()`, for reproducibility), landmark-topology validation for the Worker
 migration (including a backend-equivalence check proving `GazeProcessor` behaves
 identically regardless of which MediaPipe API produced the landmarks), and
 `DiagnosticsRecorder`'s recovery-time/time-in-status computation and sample-count cap —
@@ -334,11 +492,16 @@ false` configuration was not touched and remains a known hardening gap — see K
 
 ## Remaining Work (priority order)
 
-1. **Run the real-camera validation protocol against an actual human face** — the single
-   highest-priority remaining item, unchanged from before. All tooling exists
-   (docs/REAL_CAMERA_VALIDATION.md, the 20-phase guided script, JSON/CSV export); it has
-   not been run, because this environment has no physical webcam. Nothing else on this
-   list matters if this reveals the underlying tracking is inaccurate.
+1. **Re-run the real-camera validation protocol against an actual human face, from a
+   clean calibrated state.** The first real-camera run (2026-09-04, see above) found and
+   fixed four real bugs, but never actually measured *calibrated* gaze accuracy — its
+   calibration silently failed to apply due to bug #1 above. This is still the single
+   highest-priority remaining item: nothing else matters if a correctly-calibrated
+   session reveals the underlying tracking is inaccurate. Also re-check: whether the
+   blink-count fix (#3 above) now produces a plausible rate, whether render FPS actually
+   decouples from camera FPS with the `createImageBitmap` fix (#4 above), and the 19
+   face-loss events / inconsistent recovery times (205ms-5.4s) from the first run, which
+   were not root-caused.
 2. Measure GPU-delegate performance on real hardware — every FPS/latency number from the
    Worker migration was measured under forced CPU-only inference in this sandbox (MediaPipe
    selected CPU/XNNPACK even when GPU was requested, likely because true GPU compute isn't
@@ -354,8 +517,11 @@ false` configuration was not touched and remains a known hardening gap — see K
    this pass confirmed the channel is wired and fires (one real event), but this sandbox
    has no OS-level input injection tool (`xdotool` not installed) to move the real OS
    cursor and observe continuous streaming.
-6. **AI Drowsiness/Yawn Guard** (🔴, from the roadmap pass) — buildable as a heuristic
-   extension of `WebcamTracker.detectGestures`; still not built.
+6. **Tune the Drowsiness & Eye-Fatigue Guard's thresholds against a real human face** (✅
+   built this pass, see above) — every default (eye-closure warning/critical durations,
+   blink-rate threshold, yawn duration/threshold) is a documented product heuristic, not
+   validated against real blinking/yawning/lighting. Same real-camera validation tooling
+   already built for the gaze pipeline applies here.
 7. Electron `nodeIntegration`/`contextIsolation` hardening (pre-existing, not introduced by
    any pass so far, but worth a dedicated security pass).
 8. C/D-tier roadmap items remain blocked on external dependencies as documented in

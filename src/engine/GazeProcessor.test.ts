@@ -216,6 +216,13 @@ describe('GazeProcessor.process (full pipeline)', () => {
 
     // Simulate a blink frame with wildly different (noisy) iris landmarks - this is
     // exactly the failure mode the previous implementation had no defense against.
+    // Position holding reacts to the raw per-frame aperture immediately (every frame,
+    // not debounced) - occluded landmarks are unreliable the instant the aperture
+    // closes, so there is no acceptable delay here. Only discrete blink *counting* is
+    // debounced to 2+ consecutive frames (see the next two tests) - real-camera
+    // validation data showed a single-frame count gate produced an implausible blink
+    // rate from landmark-jitter noise, but that debounce must not also delay the
+    // position hold, or one frame of noisy landmarks leaks through the filter.
     const blinkAperture = computeEyeAperture(
       makeLandmarks({ 159: { x: 0.45, y: 0.5 }, 145: { x: 0.45, y: 0.505 }, 386: { x: 0.55, y: 0.5 }, 374: { x: 0.55, y: 0.505 } }),
       0.1
@@ -233,6 +240,36 @@ describe('GazeProcessor.process (full pipeline)', () => {
     expect(blinkResult.confidence).toBeLessThan(0.3);
   });
 
+  it('does not count a single noisy closed-aperture frame as a discrete blink', () => {
+    const gp = new GazeProcessor();
+    gp.process(baseParams);
+
+    const blinkAperture = computeEyeAperture(
+      makeLandmarks({ 159: { x: 0.45, y: 0.5 }, 145: { x: 0.45, y: 0.505 }, 386: { x: 0.55, y: 0.5 }, 374: { x: 0.55, y: 0.505 } }),
+      0.1
+    );
+    // A single closed-aperture frame should hold position (tested above) but must not
+    // register as a counted blink event - that requires 2+ consecutive frames.
+    gp.process({ ...baseParams, aperture: blinkAperture });
+    gp.process(baseParams); // aperture reopens immediately - a real blink would still be closed
+
+    expect(gp.getDiagnostics().blinkCount).toBe(0);
+  });
+
+  it('counts a discrete blink once the closed aperture persists across 2+ frames', () => {
+    const gp = new GazeProcessor();
+    gp.process(baseParams);
+
+    const blinkAperture = computeEyeAperture(
+      makeLandmarks({ 159: { x: 0.45, y: 0.5 }, 145: { x: 0.45, y: 0.505 }, 386: { x: 0.55, y: 0.5 }, 374: { x: 0.55, y: 0.505 } }),
+      0.1
+    );
+    gp.process({ ...baseParams, aperture: blinkAperture });
+    gp.process({ ...baseParams, aperture: blinkAperture });
+
+    expect(gp.getDiagnostics().blinkCount).toBe(1);
+  });
+
   it('resumes tracking immediately once the blink ends', () => {
     const gp = new GazeProcessor();
     gp.process(baseParams);
@@ -241,6 +278,7 @@ describe('GazeProcessor.process (full pipeline)', () => {
       makeLandmarks({ 159: { x: 0.45, y: 0.5 }, 145: { x: 0.45, y: 0.505 }, 386: { x: 0.55, y: 0.5 }, 374: { x: 0.55, y: 0.505 } }),
       0.1
     );
+    gp.process({ ...baseParams, aperture: blinkAperture });
     gp.process({ ...baseParams, aperture: blinkAperture });
 
     const afterBlink = gp.process(baseParams);

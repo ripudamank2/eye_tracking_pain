@@ -28,11 +28,18 @@ See [KNOWN_ISSUES.md](KNOWN_ISSUES.md) for caveats on what "done" means for a fe
 - Gaze Overlay Screen Recorder *(A — native `MediaRecorder`, exports WebM; see Known Issues for GIF/MP4 gap)*
 - Cognitive-Load/Focus Heatmap *(A, as a gaze-dwell-time proxy — see Known Issues for what this is not)*
 
+## A/B backlog — implemented this pass (2)
+
+- **Drowsiness & Eye-Fatigue Guard** *(A)* — heuristic prolonged-closure/blink-frequency/
+  yawn detector with a temporal scoring model and hysteresis, in
+  `src/engine/DrowsinessDetector.ts` (pure, unit-tested), driven from
+  `WebcamTracker.handleFaceMeshResults`'s existing eye-aperture + mouth-landmark data —
+  not a new inference pipeline. See PROJECT_STATUS.md for the full writeup and
+  KNOWN_ISSUES.md for its heuristic-nature disclaimer. Explicitly **not** a medical/sleep
+  diagnostic system — framed in the UI as a wellness/productivity reminder.
+
 ## A/B backlog — not yet built
 
-- **AI Drowsiness & Yawn Safety Guard** *(A)* — next logical item; extend
-  `WebcamTracker.detectGestures` with a rolling blink-rate + mouth-aperture heuristic,
-  same technique already used for smile/wink detection.
 - **Gaze eye-contact "sustained" reaction** *(A, minor)* — currently the smile gesture
   triggers Love mode; a distinct "held eye contact for N seconds" detector was not built
   separately since it would reuse the same signal without new user-visible behavior. Worth
